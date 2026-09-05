@@ -20,6 +20,22 @@ Supports:
 
 ---
 
+## Windows one-click build
+
+Double-click **`build.bat`** (or run from cmd in the project folder).
+
+It will:
+1. Check **Node.js 18+** and **npm**
+2. Verify project files
+3. Run `npm install`
+4. Build portable Windows EXE (`npm run dist:win`)
+
+Output: `dist\CP2020 Netrun Terminal-*-portable.exe`
+
+For development only (no compile): **`run-dev.bat`**
+
+---
+
 ## Quick start (development)
 
 ```bash
