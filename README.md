@@ -5,7 +5,7 @@ Offline helper for **Cyberpunk 2020** netrunning (Electron + Phaser 3).
 Supports:
 - Full square-cell World NetMap
 - RAW-style combat, Demons, ICE AI
-- QTE typing sequences vs Black ICE and LotF flies
+- QTE typing sequences vs Black ICE
 - Seeded RNG, F3 debug overlay, F4 CRT
 - Soft fort JSON validation (Cybersmily-compatible)
 - Session autosave (localStorage)
