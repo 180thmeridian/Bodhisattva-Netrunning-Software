@@ -1,48 +1,4 @@
 /* CP2020 Netrun Terminal — pure data tables (programs, ICE, forts, LDL, regions) */
-const PROGRAM_DB = [
-  // Intrusion
-  {name:'Hammer',cls:'Intrusion',str:4,mu:1,
-   note:'Batter datawalls. On hit −2d6 wall STR. Loud: +1 Alarm on use.'},
-  {name:'Jackhammer',cls:'Intrusion',str:2,mu:2,
-   note:'Quieter wall breach. On hit −1d6 wall STR.'},
-  {name:'Worm',cls:'Intrusion',str:2,mu:5,
-   note:'Silent. Plants on adjacent wall; opens after 2 turns with no alarm.'},
-  // Decryption
-  {name:"Wizard's Book",cls:'Decryption',str:4,mu:2,
-   note:'Treat as STR 6 vs codegates. Core gatecracker.'},
-  {name:'Codecracker',cls:'Decryption',str:3,mu:2,
-   note:'Codegates and file locks. Solid mid-tier decrypt.'},
-  {name:'Raffles',cls:'Decryption',str:5,mu:3,
-   note:'Heavy decrypt for complex word-key gates.'},
-  // Anti-IC
-  {name:'Killer II',cls:'Anti-IC',str:2,mu:5, note:'Anti-program attack. Hit: 1d6 to ICE STR.'},
-  {name:'Killer IV',cls:'Anti-IC',str:4,mu:5, note:'Stronger Killer series. Hit: 1d6 to ICE STR.'},
-  {name:'Killer VI',cls:'Anti-IC',str:6,mu:5, note:'Top-tier Killer. Hit: 1d6 to ICE STR.'},
-  {name:'Manticore',cls:'Anti-IC',str:2,mu:3, note:'Assassin vs Demons — de-rezzes Demon instantly on successful attack (RAW).'},
-  // Protection
-  {name:'Shield',cls:'Protection',str:3,mu:1, note:'Stops the next successful attack against you.'},
-  {name:'Force Shield',cls:'Protection',str:4,mu:2, note:'Stops the next 2 successful attacks.'},
-  {name:'Armor',cls:'Protection',str:4,mu:2, note:'−3 damage for up to 3 hits if Shield fails.'},
-  // Evasion
-  {name:'Invisibility',cls:'Evasion',str:3,mu:1, note:'Hide cybersignal · 3 turns. ICE must beat cloak to detect.'},
-  {name:'Stealth',cls:'Evasion',str:4,mu:3, note:'Mute signal · 3 turns. Stronger hide than Invisibility.'},
-  {name:'Replicator',cls:'Evasion',str:3,mu:2, note:'Confuse Dog-series tracers (Hellhound / Bloodhound / Pit Bull).'},
-  // Anti-Personnel
-  {name:'Stun',cls:'Anti-Personnel',str:3,mu:3, note:'Neural freeze. Can lock jack-out attempts.'},
-  {name:'Hellbolt',cls:'Anti-Personnel',str:4,mu:4, note:'1d10 physical feedback through the link.'},
-  // Demons (multi-task: act as several loaded subroutines in one MU package)
-  {name:'Imp',cls:'Demon',str:3,mu:3,
-   note:'Demon (RAW). Carries 2 programs. Subroutines use Demon core STR in combat.'},
-  {name:'Afreet',cls:'Demon',str:3,mu:4,
-   note:'Demon (RAW). Carries 3 programs. Subroutines use Demon core STR in combat.'},
-  {name:'Succubus',cls:'Demon',str:4,mu:4,
-   note:'Demon (RAW). Carries 4 programs. Subroutines use Demon core STR in combat.'},
-  {name:'Balron',cls:'Demon',str:5,mu:5,
-   note:'Demon (RAW). Carries 4 programs. Subroutines use Demon core STR in combat.'},
-  {name:'Daemon',cls:'Demon',str:4,mu:5,
-   note:'Compiler shell (house). Treat as Demon; slots 3. Subroutines use core STR.'},
-];
-
 const ICE_LORE = {
   'watchdog':'Detection ICE. Barks alarm when it sees a runner. Low aggression unless cornered.',
   'bloodhound':'Tracer. Can leave the fortress to follow a signal. Contributes to Trace rolls.',
@@ -59,23 +15,826 @@ const ICE_LORE = {
 };
 
 const SAMPLE_FORT = {
-  name:'DEMO // HK–Macao · Golden Promise Datafort',
-  rows:12, columns:14, cpu:2, int:6, datawallStr:5,
-  cpuNodes:[{x:6,y:5},{x:7,y:5}],
-  muNodes:[{x:4,y:4},{x:9,y:4},{x:4,y:7},{x:9,y:7}],
-  datawallNodes:(()=>{const n=[];for(let x=2;x<=11;x++){n.push({x,y:2},{x,y:9})}for(let y=3;y<=8;y++){n.push({x:2,y},{x:11,y})}return n})(),
-  codegates:[{str:3,coord:{x:6,y:2}},{str:4,coord:{x:11,y:5}}],
-  remotes:[
-    {name:'Lobby Cam',type:8,coord:{x:3,y:3}},
-    {name:'Door-A',type:14,coord:{x:5,y:3}},
-    {name:'Term-Sysop',type:6,coord:{x:8,y:6}}
+  "name": "Bastion of Free Will",
+  "notes": "",
+  "rows": 15,
+  "columns": 15,
+  "cost": 193800,
+  "additionalCosts": 0,
+  "cpu": 4,
+  "cpuNodes": [
+    {
+      "x": 3,
+      "y": 3
+    },
+    {
+      "x": 11,
+      "y": 3
+    },
+    {
+      "x": 11,
+      "y": 11
+    },
+    {
+      "x": 3,
+      "y": 11
+    }
   ],
-  defenses:[
-    {name:'Watchdog',coord:{x:5,y:5},program:{name:'Watchdog',strength:4,mu:5}},
-    {name:'Hellhound',coord:{x:8,y:5},program:{name:'Hellhound',strength:6,mu:6}},
-    {name:'Killer',coord:{x:6,y:8},program:{name:'Killer',strength:5,mu:5}}
+  "mu": [
+    {
+      "key": "Porn",
+      "value": 1
+    },
+    {
+      "key": "Financial data",
+      "value": 1
+    },
+    {
+      "key": "off-the-books accounting",
+      "value": 6
+    },
+    {
+      "key": "Porn",
+      "value": 3
+    },
+    {
+      "key": "off-the-books accounting",
+      "value": 1
+    },
+    {
+      "key": "Suspicious data",
+      "value": 2
+    },
+    {
+      "key": "Porn",
+      "value": 6
+    },
+    {
+      "key": "Financial data",
+      "value": 3
+    },
+    {
+      "key": "off-the-books accounting",
+      "value": 4
+    },
+    {
+      "key": "Financial data",
+      "value": 2
+    },
+    {
+      "key": "Suspicious data",
+      "value": 3
+    },
+    {
+      "key": "off-the-books accounting",
+      "value": 1
+    },
+    {
+      "key": "Porn",
+      "value": 5
+    },
+    {
+      "key": "Suspicious data",
+      "value": 2
+    },
+    {
+      "key": "Financial data",
+      "value": 2
+    },
+    {
+      "key": "Music",
+      "value": 7
+    }
   ],
-  files:[{key:'Black Project',value:4},{key:'Payroll Q3',value:2}]
+  "muNodes": [
+    {
+      "x": 3,
+      "y": 2
+    },
+    {
+      "x": 2,
+      "y": 2
+    },
+    {
+      "x": 11,
+      "y": 2
+    },
+    {
+      "x": 12,
+      "y": 2
+    },
+    {
+      "x": 12,
+      "y": 3
+    },
+    {
+      "x": 2,
+      "y": 3
+    },
+    {
+      "x": 2,
+      "y": 11
+    },
+    {
+      "x": 2,
+      "y": 12
+    },
+    {
+      "x": 3,
+      "y": 12
+    },
+    {
+      "x": 12,
+      "y": 11
+    },
+    {
+      "x": 12,
+      "y": 12
+    },
+    {
+      "x": 11,
+      "y": 12
+    }
+  ],
+  "muAvailable": 160,
+  "muUsed": 84,
+  "int": 12,
+  "ai": {
+    "personality": "Friendly, curious",
+    "reaction": "Talk to intruder to find intent",
+    "icon": "Geometric"
+  },
+  "datawallStr": 8,
+  "datawallNodes": [
+    {
+      "x": 4,
+      "y": 12
+    },
+    {
+      "x": 2,
+      "y": 10
+    },
+    {
+      "x": 2,
+      "y": 4
+    },
+    {
+      "x": 4,
+      "y": 2
+    },
+    {
+      "x": 10,
+      "y": 2
+    },
+    {
+      "x": 12,
+      "y": 4
+    },
+    {
+      "x": 10,
+      "y": 12
+    },
+    {
+      "x": 12,
+      "y": 10
+    },
+    {
+      "x": 6,
+      "y": 3
+    },
+    {
+      "x": 6,
+      "y": 2
+    },
+    {
+      "x": 8,
+      "y": 2
+    },
+    {
+      "x": 8,
+      "y": 3
+    },
+    {
+      "x": 11,
+      "y": 6
+    },
+    {
+      "x": 12,
+      "y": 6
+    },
+    {
+      "x": 12,
+      "y": 8
+    },
+    {
+      "x": 11,
+      "y": 8
+    },
+    {
+      "x": 8,
+      "y": 11
+    },
+    {
+      "x": 8,
+      "y": 12
+    },
+    {
+      "x": 6,
+      "y": 12
+    },
+    {
+      "x": 6,
+      "y": 11
+    },
+    {
+      "x": 3,
+      "y": 8
+    },
+    {
+      "x": 2,
+      "y": 8
+    },
+    {
+      "x": 2,
+      "y": 6
+    },
+    {
+      "x": 3,
+      "y": 6
+    },
+    {
+      "x": 3,
+      "y": 9
+    },
+    {
+      "x": 5,
+      "y": 11
+    },
+    {
+      "x": 3,
+      "y": 5
+    },
+    {
+      "x": 5,
+      "y": 3
+    },
+    {
+      "x": 9,
+      "y": 3
+    },
+    {
+      "x": 11,
+      "y": 5
+    },
+    {
+      "x": 9,
+      "y": 11
+    },
+    {
+      "x": 11,
+      "y": 9
+    },
+    {
+      "x": 12,
+      "y": 13
+    },
+    {
+      "x": 11,
+      "y": 13
+    },
+    {
+      "x": 13,
+      "y": 12
+    },
+    {
+      "x": 13,
+      "y": 11
+    },
+    {
+      "x": 3,
+      "y": 13
+    },
+    {
+      "x": 2,
+      "y": 13
+    },
+    {
+      "x": 1,
+      "y": 12
+    },
+    {
+      "x": 1,
+      "y": 11
+    },
+    {
+      "x": 11,
+      "y": 1
+    },
+    {
+      "x": 12,
+      "y": 1
+    },
+    {
+      "x": 13,
+      "y": 1
+    },
+    {
+      "x": 13,
+      "y": 2
+    },
+    {
+      "x": 13,
+      "y": 3
+    },
+    {
+      "x": 3,
+      "y": 1
+    },
+    {
+      "x": 2,
+      "y": 1
+    },
+    {
+      "x": 1,
+      "y": 1
+    },
+    {
+      "x": 1,
+      "y": 2
+    },
+    {
+      "x": 1,
+      "y": 3
+    },
+    {
+      "x": 4,
+      "y": 6
+    },
+    {
+      "x": 4,
+      "y": 8
+    },
+    {
+      "x": 10,
+      "y": 8
+    },
+    {
+      "x": 10,
+      "y": 6
+    },
+    {
+      "x": 8,
+      "y": 4
+    },
+    {
+      "x": 6,
+      "y": 4
+    },
+    {
+      "x": 6,
+      "y": 10
+    },
+    {
+      "x": 8,
+      "y": 10
+    }
+  ],
+  "codegates": [
+    {
+      "str": 6,
+      "coord": {
+        "x": 1,
+        "y": 7
+      }
+    },
+    {
+      "str": 6,
+      "coord": {
+        "x": 13,
+        "y": 7
+      }
+    },
+    {
+      "str": 6,
+      "coord": {
+        "x": 7,
+        "y": 1
+      }
+    },
+    {
+      "str": 6,
+      "coord": {
+        "x": 7,
+        "y": 13
+      }
+    },
+    {
+      "str": 10,
+      "coord": {
+        "x": 4,
+        "y": 7
+      }
+    },
+    {
+      "str": 10,
+      "coord": {
+        "x": 7,
+        "y": 4
+      }
+    },
+    {
+      "str": 10,
+      "coord": {
+        "x": 10,
+        "y": 7
+      }
+    },
+    {
+      "str": 10,
+      "coord": {
+        "x": 7,
+        "y": 10
+      }
+    },
+    {
+      "str": 8,
+      "coord": {
+        "x": 5,
+        "y": 9
+      }
+    },
+    {
+      "str": 8,
+      "coord": {
+        "x": 5,
+        "y": 5
+      }
+    },
+    {
+      "str": 8,
+      "coord": {
+        "x": 9,
+        "y": 5
+      }
+    },
+    {
+      "str": 8,
+      "coord": {
+        "x": 9,
+        "y": 9
+      }
+    }
+  ],
+  "files": [],
+  "remotes": [],
+  "skills": [
+    {
+      "key": "Operate Hvy. Machinery",
+      "value": 10
+    }
+  ],
+  "defenses": [
+    {
+      "name": "",
+      "coord": {
+        "x": 4,
+        "y": 4
+      },
+      "program": {
+        "name": "Cerebus",
+        "description": "Pit Bull that shoots Hellbolts. Bartmoss Brainware Blowout pg. 54",
+        "icon": "",
+        "class": {
+          "name": "anti-personnel",
+          "diff": 20,
+          "costMod": 25,
+          "source": {
+            "book": "BB",
+            "page": 34
+          },
+          "description": "Attacks Netrunners doing 1D6 damage or mind wipe."
+        },
+        "options": [
+          {
+            "name": "Movement Ability",
+            "description": "Move freely throughout the NET.",
+            "diff": 5
+          },
+          {
+            "name": "Trace",
+            "description": "Follow program/runner through NET.",
+            "diff": 2
+          },
+          {
+            "name": "Pseudo-Intellect",
+            "description": "Has INT 6.",
+            "diff": 6
+          },
+          {
+            "name": "Endurance",
+            "description": "Never quits until destroyed.",
+            "diff": 3
+          }
+        ],
+        "loaded": false,
+        "_str": 6,
+        "bookMu": 7,
+        "bookCost": 10500
+      }
+    },
+    {
+      "name": "",
+      "coord": {
+        "x": 10,
+        "y": 4
+      },
+      "program": {
+        "name": "Cerebus",
+        "description": "Pit Bull that shoots Hellbolts. Bartmoss Brainware Blowout pg. 54",
+        "icon": "",
+        "class": {
+          "name": "anti-personnel",
+          "diff": 20,
+          "costMod": 25,
+          "source": {
+            "book": "BB",
+            "page": 34
+          },
+          "description": "Attacks Netrunners doing 1D6 damage or mind wipe."
+        },
+        "options": [
+          {
+            "name": "Movement Ability",
+            "diff": 5,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Move freely throughout the NET."
+          },
+          {
+            "name": "Trace",
+            "diff": 2,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Follow program/runner through NET."
+          },
+          {
+            "name": "Pseudo-Intellect",
+            "diff": 6,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Has INT 6."
+          },
+          {
+            "name": "Endurance",
+            "diff": 3,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Never quits until destroyed."
+          }
+        ],
+        "loaded": false,
+        "_str": 6,
+        "bookMu": 8,
+        "bookCost": 9500
+      }
+    },
+    {
+      "name": "",
+      "coord": {
+        "x": 4,
+        "y": 10
+      },
+      "program": {
+        "name": "Cerebus",
+        "description": "Pit Bull that shoots Hellbolts. Bartmoss Brainware Blowout pg. 54",
+        "icon": "",
+        "class": {
+          "name": "anti-personnel",
+          "diff": 20,
+          "costMod": 25,
+          "source": {
+            "book": "BB",
+            "page": 34
+          },
+          "description": "Attacks Netrunners doing 1D6 damage or mind wipe."
+        },
+        "options": [
+          {
+            "name": "Movement Ability",
+            "diff": 5,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Move freely throughout the NET."
+          },
+          {
+            "name": "Trace",
+            "diff": 2,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Follow program/runner through NET."
+          },
+          {
+            "name": "Pseudo-Intellect",
+            "diff": 6,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Has INT 6."
+          },
+          {
+            "name": "Endurance",
+            "diff": 3,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Never quits until destroyed."
+          }
+        ],
+        "loaded": false,
+        "_str": 6,
+        "bookMu": 8,
+        "bookCost": 9500
+      }
+    },
+    {
+      "name": "",
+      "coord": {
+        "x": 10,
+        "y": 10
+      },
+      "program": {
+        "name": "Cerebus",
+        "description": "Pit Bull that shoots Hellbolts. Bartmoss Brainware Blowout pg. 54",
+        "icon": "",
+        "class": {
+          "name": "anti-personnel",
+          "diff": 20,
+          "costMod": 25,
+          "source": {
+            "book": "BB",
+            "page": 34
+          },
+          "description": "Attacks Netrunners doing 1D6 damage or mind wipe."
+        },
+        "options": [
+          {
+            "name": "Movement Ability",
+            "diff": 5,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Move freely throughout the NET."
+          },
+          {
+            "name": "Trace",
+            "diff": 2,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Follow program/runner through NET."
+          },
+          {
+            "name": "Pseudo-Intellect",
+            "diff": 6,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Has INT 6."
+          },
+          {
+            "name": "Endurance",
+            "diff": 3,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Never quits until destroyed."
+          }
+        ],
+        "loaded": false,
+        "_str": 6,
+        "bookMu": 8,
+        "bookCost": 9500
+      }
+    },
+    {
+      "name": "",
+      "coord": {
+        "x": 7,
+        "y": 7
+      },
+      "program": {
+        "name": "Liche",
+        "description": "Erases 'runner's memory and over-writes personality. Bartmoss Brainware Blowout pg. 56Learning program that may crash or grow in strength. Has INT 6. Remembers events/people. Move freely throughout the NET. Recognizes programs/runners. Reduce MU 1/2. Can speak. ",
+        "icon": "",
+        "class": {
+          "name": "anti-personnel",
+          "diff": 20,
+          "costMod": 25,
+          "source": {
+            "book": "BB",
+            "page": 34
+          },
+          "description": "Attacks Netrunners doing 1D6 damage or mind wipe."
+        },
+        "options": [
+          {
+            "name": "Trace",
+            "diff": 2,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Follow program/runner through NET."
+          },
+          {
+            "name": "Self-Modifying Code",
+            "diff": 15,
+            "source": {
+              "book": "BB",
+              "page": 70
+            },
+            "description": "Learning program that may crash or grow in strength."
+          },
+          {
+            "name": "Pseudo-Intellect",
+            "diff": 6,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Has INT 6."
+          },
+          {
+            "name": "Memory",
+            "diff": 5,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Remembers events/people."
+          },
+          {
+            "name": "Movement Ability",
+            "diff": 5,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Move freely throughout the NET."
+          },
+          {
+            "name": "Recognition",
+            "diff": 2,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Recognizes programs/runners."
+          },
+          {
+            "name": "Code Optimization",
+            "diff": 10,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Reduce MU 1/2."
+          },
+          {
+            "name": "Conversational Ability",
+            "diff": 3,
+            "source": {
+              "book": "BB",
+              "page": 34
+            },
+            "description": "Can speak."
+          }
+        ],
+        "loaded": false,
+        "_str": 8,
+        "bookMu": 4,
+        "bookCost": 7250
+      }
+    }
+  ]
 };
 
 
@@ -177,7 +936,6 @@ const NET_REGIONS = [
 
 
 // expose for modules / game
-window.PROGRAM_DB = PROGRAM_DB;
 window.ICE_LORE = ICE_LORE;
 window.SAMPLE_FORT = SAMPLE_FORT;
 window.LDL_DB = LDL_DB;

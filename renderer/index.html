@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>CP2020 NETRUN // ISO 1.6.6</title>
+<title>CP2020 NETRUN // ISO 1.6.45</title>
 <script src="phaser.min.js"></script>
 <style>
 :root {
@@ -14,7 +14,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;background:var(--bg);color:var(--w);
   font-family:"Courier New",Courier,monospace;font-size:12px;overflow:hidden}
-#shell{display:grid;grid-template-columns:290px 1fr 310px;grid-template-rows:40px 1fr 30px;height:100vh}
+#shell{display:grid;grid-template-columns:280px 1fr 360px;grid-template-rows:42px 1fr 28px;height:100vh}
 header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
   padding:0 14px;border-bottom:1px solid var(--border);
   background:linear-gradient(180deg,#0c1a12,#050a07)}
@@ -40,9 +40,35 @@ button.red{color:var(--r);border-color:#401018}
   color:var(--g);font-family:inherit;font-size:11px;padding:2px 4px}
 .stat-row input.wide{width:110px}
 #game-wrap{position:relative;background:#010402;overflow:hidden}
-#hud-top{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none;
-  background:rgba(3,10,6,.82);border:1px solid var(--border);padding:5px 16px;color:var(--a);
-  letter-spacing:1px;text-shadow:0 0 6px rgba(255,170,51,.35);white-space:nowrap}
+#hud-top{
+  position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:5;
+  pointer-events:none; opacity:0; transition:opacity .35s ease;
+  background:rgba(3,10,6,.82); border:1px solid var(--border); padding:5px 16px;
+  color:var(--a); letter-spacing:1px; text-shadow:0 0 6px rgba(255,170,51,.35); white-space:nowrap;
+}
+#hud-top.show{ opacity:1; }
+#hud-flash{
+  position:absolute; top:48px; left:50%; transform:translateX(-50%); z-index:6;
+  pointer-events:none; font-size:13px; letter-spacing:2px; color:var(--c);
+  text-shadow:0 0 12px rgba(51,204,255,.5); opacity:0; transition:opacity .3s ease; white-space:nowrap;
+}
+#hud-flash.show{ opacity:1; }
+#flatline-screen{
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:#050000; flex-direction:column; align-items:center; justify-content:center;
+  font-family:"Courier New",monospace;
+}
+#flatline-screen.on{ display:flex; }
+#flatline-screen .fl-title{
+  font-size:clamp(42px,12vw,96px); font-weight:bold; letter-spacing:0.35em;
+  color:#ff2030; text-shadow:0 0 24px rgba(255,32,48,.85), 0 0 60px rgba(255,0,40,.4);
+  animation: flPulse 1.1s ease-in-out infinite;
+}
+#flatline-screen .fl-sub{ margin-top:18px; color:#8a3038; letter-spacing:3px; font-size:12px; }
+@keyframes flPulse{
+  0%,100%{ opacity:1; filter:brightness(1); }
+  50%{ opacity:0.55; filter:brightness(1.3); }
+}
 #prog-list{max-height:240px;overflow:auto}
 .prog{display:grid;grid-template-columns:1fr auto auto auto;gap:4px;align-items:center;
   border:1px solid var(--border);padding:5px 7px;margin-bottom:4px;background:#050c08;cursor:pointer}
@@ -50,14 +76,136 @@ button.red{color:var(--r);border-color:#401018}
 .prog .name{color:var(--w)}
 .prog .meta{color:var(--m);font-size:10px}
 .prog button{padding:2px 6px;font-size:10px}
-#log{height:200px;overflow-y:auto;background:#030805;border:1px solid var(--border);padding:6px;line-height:1.4}
-#log .turn{color:var(--a)} #log .ok{color:var(--g)} #log .bad{color:var(--r)}
-#log .info{color:var(--c)} #log .sys{color:var(--m)}
+#right.panel{
+  display:flex; flex-direction:column; min-height:0; overflow:hidden;
+}
+#right .stat-row, #right .menu-grid, #right #init-box, #right > p{
+  flex-shrink:0;
+}
+#log-section{
+  flex:1; min-height:180px; display:flex; flex-direction:column; margin-top:8px; min-height:0;
+}
+#log-section h3{
+  display:flex; align-items:center; gap:8px; margin:0 0 6px 0;
+}
+#log-tools{ margin-left:auto; display:flex; gap:4px; }
+#log-tools button{
+  padding:2px 7px; font-size:9px; letter-spacing:0.5px;
+}
+#log{
+  flex:1; min-height:160px; max-height:none;
+  overflow-y:auto; overflow-x:hidden;
+  background:#020604;
+  border:1px solid var(--border);
+  padding:6px 8px;
+  line-height:1.45;
+  font-size:12.5px;
+  scroll-behavior:smooth;
+}
+#log .log-line{
+  display:grid;
+  grid-template-columns:52px 1fr;
+  gap:6px;
+  padding:3px 4px 3px 6px;
+  border-left:3px solid transparent;
+  margin:0 0 2px 0;
+  word-break:break-word;
+  transition: background .15s ease;
+}
+#log .log-line:hover{ background:rgba(51,255,102,0.05); }
+#log .log-ts{ color:#3a5a42; font-size:10px; letter-spacing:0.3px; padding-top:1px; }
+#log .log-msg{ color:var(--w); }
+#log .turn{ border-left-color:var(--a); }
+#log .turn .log-msg{ color:var(--a); font-weight:bold; }
+#log .ok{ border-left-color:var(--g); }
+#log .ok .log-msg{ color:var(--g); }
+#log .bad{ border-left-color:var(--r); background:rgba(255,51,85,0.06); }
+#log .bad .log-msg{ color:#ff6680; }
+#log .info{ border-left-color:var(--c); }
+#log .info .log-msg{ color:#7ad4f0; }
+#log .sys{ border-left-color:#2a4a34; }
+#log .sys .log-msg{ color:#8aab90; }
+#log .warn{ border-left-color:#ffaa33; }
+#log .warn .log-msg{ color:#ffcc66; }
+/* dark scrollbars — blend with terminal UI */
+.panel::-webkit-scrollbar,
+#log::-webkit-scrollbar,
+#prog-list::-webkit-scrollbar,
+#ai-panel::-webkit-scrollbar,
+#netmap-side::-webkit-scrollbar,
+#citygrid-side::-webkit-scrollbar,
+.boot-panel::-webkit-scrollbar{
+  width:8px; height:8px;
+}
+.panel::-webkit-scrollbar-track,
+#log::-webkit-scrollbar-track,
+#prog-list::-webkit-scrollbar-track,
+#ai-panel::-webkit-scrollbar-track,
+#netmap-side::-webkit-scrollbar-track,
+#citygrid-side::-webkit-scrollbar-track,
+.boot-panel::-webkit-scrollbar-track{
+  background:#020604;
+}
+.panel::-webkit-scrollbar-thumb,
+#log::-webkit-scrollbar-thumb,
+#prog-list::-webkit-scrollbar-thumb,
+#ai-panel::-webkit-scrollbar-thumb,
+#netmap-side::-webkit-scrollbar-thumb,
+#citygrid-side::-webkit-scrollbar-thumb,
+.boot-panel::-webkit-scrollbar-thumb{
+  background:#0c1a12;
+  border:1px solid #152818;
+  border-radius:4px;
+}
+.panel::-webkit-scrollbar-thumb:hover,
+#log::-webkit-scrollbar-thumb:hover,
+#prog-list::-webkit-scrollbar-thumb:hover,
+#ai-panel::-webkit-scrollbar-thumb:hover,
+#netmap-side::-webkit-scrollbar-thumb:hover,
+#citygrid-side::-webkit-scrollbar-thumb:hover,
+.boot-panel::-webkit-scrollbar-thumb:hover{
+  background:#143020;
+}
+.panel::-webkit-scrollbar-button,
+#log::-webkit-scrollbar-button,
+#prog-list::-webkit-scrollbar-button{
+  background:#060e09;
+  border:1px solid #0c1a12;
+  height:10px;
+}
+.panel::-webkit-scrollbar-corner,
+#log::-webkit-scrollbar-corner{
+  background:#020604;
+}
+/* Firefox */
+.panel, #log, #prog-list, #ai-panel, #netmap-side, #citygrid-side, .boot-panel{
+  scrollbar-width:thin;
+  scrollbar-color:#0c1a12 #020604;
+}
+#init-box{ font-size:10px; padding:5px 6px; }
+.menu-grid button{ padding:6px 4px; }
+#right > p{ font-size:9.5px !important; margin-top:4px !important; }
 .menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
 .menu-grid button{width:100%;padding:7px 4px}
 footer{grid-column:1/-1;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px;
   padding:0 12px;color:var(--m);font-size:11px;background:#050a07}
 footer kbd{border:1px solid var(--border);padding:0 4px;color:var(--gd)}
+
+#foot-loc{
+  display:flex; align-items:center; gap:10px; margin-right:auto;
+  font-size:11px; color:var(--m); letter-spacing:0.5px;
+}
+#foot-loc b{ color:var(--g); font-weight:normal; }
+#foot-loc .sep{ color:var(--border); }
+#foot-loc .fort{ color:var(--c); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#hdr-loc{
+  color:var(--c); font-size:11px; letter-spacing:1px; margin-right:12px;
+  max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+#right .stat-row.dim-zero b{ color:var(--m); }
+#init-box{ display:none; }
+#right > p.menu-hint{ display:none; }
+
 #crt-scan,#crt-vignette,#crt-noise,#crt-glitch{position:fixed;inset:0;pointer-events:none;z-index:1000}
 #crt-scan{background:repeating-linear-gradient(0deg,rgba(0,0,0,.26)0px,rgba(0,0,0,.26)1px,transparent 1px,transparent 3px);
   animation:sf .12s infinite alternate}
@@ -89,6 +237,7 @@ footer kbd{border:1px solid var(--border);padding:0 4px;color:var(--gd)}
 #netmap-canvas{display:block;width:100%;height:100%}
 #netmap-side{border-left:1px solid var(--border);overflow:auto;padding:8px;background:#040a07}
 #netmap-side h4{color:var(--c);font-size:10px;letter-spacing:1px;margin:8px 0 4px}
+.ldl-card.range{border-color:var(--a);}
 .ldl-card{border:1px solid var(--border);padding:6px 8px;background:#050c08;cursor:pointer;margin-bottom:4px;font-size:10px}
 .ldl-card:hover{border-color:var(--g)}
 .ldl-card.here{border-color:var(--c);box-shadow:0 0 8px rgba(51,204,255,.2)}
@@ -125,40 +274,720 @@ footer kbd{border:1px solid var(--border);padding:0 4px;color:var(--gd)}
 #tip .tip-row b{color:#ffaa33; font-weight:normal}
 #tip .tip-body{color:#a8c8a8; margin-top:6px; border-top:1px solid #1a3a24; padding-top:6px}
 #tip .tip-warn{color:#ff3355; margin-top:4px; font-size:10px}
+
+#dossier{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;padding:8px;border:1px solid var(--border);background:#040a07}
+#dossier-photo{width:72px;height:88px;flex-shrink:0;position:relative;border:1px solid #1a4030;overflow:hidden;background:#0a1210;cursor:pointer}
+#dossier-photo canvas{width:100%;height:100%;display:block;filter:contrast(1.15) saturate(0.7) brightness(0.95)}
+#dossier-photo .scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(51,255,102,.06) 2px,rgba(51,255,102,.06) 3px);pointer-events:none}
+#dossier-meta{flex:1;min-width:0}
+#dossier-meta .realname{font-size:9px;color:var(--m);letter-spacing:0.5px;margin-top:2px}
+#dossier-meta .handle{color:var(--g);font-weight:bold;font-size:13px;letter-spacing:1px}
+#dossier-meta .idline{color:var(--c);font-size:10px;margin-top:4px}
+#citygrid-overlay{position:absolute;inset:0;z-index:16;display:none;flex-direction:column;background:rgba(1,4,3,.97);padding:10px}
+#citygrid-overlay.open{display:flex}
+#citygrid-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+#citygrid-top h2{color:var(--c);font-size:14px;letter-spacing:1px}
+#citygrid-canvas-wrap{flex:1;min-height:0;border:1px solid var(--border);background:#020806}
+#citygrid-canvas{width:100%;height:100%}
+#citygrid-side{width:200px;overflow:auto;padding-left:10px;font-size:11px;color:var(--m)}
+
+
+/* ambient animations */
+@keyframes borderPulse {
+  0%,100%{ box-shadow: inset 0 0 0 1px rgba(51,255,102,.15); }
+  50%{ box-shadow: inset 0 0 12px rgba(51,255,102,.12), 0 0 8px rgba(51,255,102,.08); }
+}
+@keyframes titleGlow {
+  0%,100%{ text-shadow:0 0 8px rgba(51,255,102,.4); }
+  50%{ text-shadow:0 0 16px rgba(51,255,102,.7), 0 0 24px rgba(51,204,255,.25); }
+}
+header .title{ animation: titleGlow 3.2s ease-in-out infinite; }
+#game-wrap{ animation: borderPulse 4s ease-in-out infinite; }
+@keyframes aiBlink { 0%,100%{ opacity:1 } 50%{ opacity:.55 } }
+#ai-feed .ai-line.new{ animation: aiBlink 1.2s ease 2; }
+
+/* map chrome */
+#map-chrome{
+  position:absolute; left:0; right:0; bottom:0; z-index:12;
+  display:flex; flex-direction:column; pointer-events:none;
+  background:linear-gradient(0deg, rgba(2,8,5,.92) 60%, transparent);
+  padding:8px 10px 6px;
+}
+#map-chrome > *{ pointer-events:auto; }
+#ai-panel{
+  align-self:flex-end; width:min(320px,42%);
+  max-height:120px; overflow:auto;
+  border:1px solid var(--border); background:rgba(4,12,8,.88);
+  margin-bottom:6px; font-size:10px; padding:6px 8px;
+}
+#ai-panel h4{ color:var(--c); letter-spacing:1px; margin-bottom:4px; font-size:10px; }
+#ai-feed{ color:var(--m); line-height:1.35; }
+#ai-feed .ai-line{ border-bottom:1px solid #0a1a12; padding:3px 0; }
+#ai-feed .ai-line b{ color:var(--a); }
+#cmd-line{
+  display:flex; gap:6px; align-items:center;
+  border:1px solid var(--border); background:#040a07; padding:4px 8px;
+}
+#cmd-line .prompt{ color:var(--g); flex-shrink:0; }
+#cmd-input{
+  flex:1; background:transparent; border:0; outline:none;
+  color:var(--w); font-family:inherit; font-size:12px;
+}
+#cmd-input::placeholder{ color:var(--m); opacity:.7; }
+
+/* idle NET screensaver */
+#idle-net{
+  display:none; position:fixed; inset:0; z-index:50;
+  background:rgba(1,3,2,.92); cursor:none;
+  overflow:hidden;
+}
+#idle-net.on{ display:block; }
+#idle-net .net-word{
+  position:absolute; color:var(--g);
+  font-size:64px; letter-spacing:18px; font-weight:bold;
+  text-shadow:0 0 20px rgba(51,255,102,.6), 0 0 40px rgba(51,204,255,.3);
+  opacity:.85; user-select:none; white-space:nowrap;
+  animation: netDrift 12s ease-in-out infinite alternate;
+}
+@keyframes netDrift {
+  0%{ transform: translate(0,0) scale(1); filter:hue-rotate(0deg); }
+  50%{ transform: translate(8vw,6vh) scale(1.05); filter:hue-rotate(20deg); }
+  100%{ transform: translate(-6vw,10vh) scale(0.95); filter:hue-rotate(-10deg); }
+}
+#idle-net .sub{
+  position:absolute; bottom:12%; left:0; right:0; text-align:center;
+  color:var(--m); font-size:12px; letter-spacing:3px;
+}
+
+button.red-exit{ color:var(--r); border-color:#4a1520; }
+button.red-exit:hover{ border-color:var(--r); box-shadow:0 0 8px rgba(255,51,85,.35); }
+
+
+  50%{ opacity:0.85; }
+}
+
+
+.prog{
+  transition: border-color .25s ease, box-shadow .25s ease, background .25s ease, transform .2s ease;
+}
+.prog:hover{ background:rgba(51,255,102,0.04); }
+.prog .prog-main{ display:flex; gap:8px; align-items:flex-start; }
+.prog .glyph{
+  font-size:14px; width:18px; text-align:center; flex-shrink:0;
+  filter: drop-shadow(0 0 4px currentColor);
+  opacity:0.9;
+}
+.prog .slots{ margin-top:3px; color:#33ccff; }
+.prog.cls-intrusion{ border-left:3px solid #ffaa33; }
+.prog.cls-intrusion .glyph,.prog.cls-intrusion .name{ color:#ffaa33; }
+.prog.cls-decrypt{ border-left:3px solid #33ccff; }
+.prog.cls-decrypt .glyph,.prog.cls-decrypt .name{ color:#33ccff; }
+.prog.cls-detect{ border-left:3px solid #66ffaa; }
+.prog.cls-detect .glyph,.prog.cls-detect .name{ color:#66ffaa; }
+.prog.cls-antiic{ border-left:3px solid #ff6688; }
+.prog.cls-antiic .glyph,.prog.cls-antiic .name{ color:#ff6688; }
+.prog.cls-antip{ border-left:3px solid #ff3355; }
+.prog.cls-antip .glyph,.prog.cls-antip .name{ color:#ff3355; }
+.prog.cls-prot{ border-left:3px solid #4488ff; }
+.prog.cls-prot .glyph,.prog.cls-prot .name{ color:#66aaff; }
+.prog.cls-evasion{ border-left:3px solid #aa66ff; }
+.prog.cls-evasion .glyph,.prog.cls-evasion .name{ color:#cc88ff; }
+.prog.cls-demon{ border-left:3px solid #ff66cc; }
+.prog.cls-demon .glyph,.prog.cls-demon .name{ color:#ff66cc; }
+.prog.cls-util{ border-left:3px solid #88aa66; }
+.prog.cls-util .glyph,.prog.cls-util .name{ color:#aacc88; }
+.prog.cls-ctrl{ border-left:3px solid #66cccc; }
+.prog.cls-ctrl .glyph,.prog.cls-ctrl .name{ color:#66cccc; }
+.prog.cls-multi{ border-left:3px solid #ffcc66; }
+.prog.cls-multi .glyph,.prog.cls-multi .name{ color:#ffcc66; }
+.prog.cls-antisys{ border-left:3px solid #ff8844; }
+.prog.cls-antisys .glyph,.prog.cls-antisys .name{ color:#ff8844; }
+.prog.sel{ transform:translateX(2px); }
+.prog.run-pulse{
+  animation: progRunPulse .55s ease;
+}
+@keyframes progRunPulse {
+  0%{ box-shadow:0 0 0 rgba(51,255,102,0); }
+  40%{ box-shadow:0 0 16px rgba(51,255,102,.45); background:rgba(51,255,102,.08); }
+  100%{ box-shadow:0 0 0 transparent; }
+}
+#ai-face-art{
+  transition: opacity .6s ease;
+}
+
+
+#boot-screen{
+  display:none; position:fixed; inset:0; z-index:60;
+  flex-direction:column; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at center,#0a1a12 0%,#020604 70%);
+  color:var(--w); font-family:inherit;
+}
+#boot-screen.on{ display:flex; }
+.boot-logo{
+  font-size:28px; letter-spacing:6px; color:var(--g);
+  text-shadow:0 0 18px rgba(51,255,102,.5);
+  margin-bottom:6px; animation: titleGlow 3s ease-in-out infinite;
+}
+.boot-sub{ color:var(--m); font-size:12px; letter-spacing:2px; margin-bottom:28px; }
+.boot-panel{
+  width:min(640px,92vw); max-height:78vh; overflow:auto;
+  border:1px solid var(--border); background:rgba(4,12,8,.92);
+  padding:18px 20px; box-shadow:0 0 40px rgba(0,0,0,.6);
+}
+.boot-panel h2{ color:var(--c); letter-spacing:2px; font-size:14px; margin:0 0 12px; }
+.boot-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.profile-cards{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.profile-card{
+  border:1px solid var(--border); padding:10px 12px; background:#050a07;
+  transition: border-color .2s, box-shadow .2s;
+}
+.profile-card:hover{ border-color:var(--c); box-shadow:0 0 12px rgba(51,204,255,.15); }
+.profile-card.dead{ opacity:0.55; border-color:#4a1520; pointer-events:auto; }
+.profile-card.dead:hover{ border-color:var(--r); box-shadow:0 0 10px rgba(255,51,85,.25); }
+.pc-handle{ color:var(--g); font-weight:bold; font-size:14px; letter-spacing:1px; }
+.pc-real{ color:var(--m); font-size:10px; margin-bottom:6px; }
+.pc-stats{ color:var(--w); font-size:11px; line-height:1.35; }
+.pc-actions{ display:flex; gap:6px; margin-top:8px; }
+.pc-actions button{ padding:3px 8px; font-size:10px; }
+.profile-empty{ grid-column:1/-1; color:var(--m); text-align:center; padding:24px; }
+.boot-form .stat-row{ margin:6px 0; }
+.boot-form label{ display:grid; grid-template-columns:120px 1fr; align-items:center; gap:8px; margin:6px 0; font-size:12px; color:var(--m); }
+.boot-form input, .boot-form select{
+  background:#050a07; border:1px solid var(--border); color:var(--g);
+  font-family:inherit; padding:5px 8px; width:100%;
+}
+.boot-form .hint{ color:var(--m); font-size:10px; margin:8px 0 12px; line-height:1.4; }
+.hidden{ display:none !important; }
+#shell[style*="hidden"]{ pointer-events:none; }
+
+
+/* ===== Matrix boot sequence ===== */
+#matrix-boot{
+  display:none; position:fixed; inset:0; z-index:80;
+  background:#000; overflow:hidden;
+}
+#matrix-boot.on{ display:block; }
+#matrix-boot.fadeout{ opacity:0; transition:opacity .65s ease; }
+#matrix-canvas{ position:absolute; inset:0; width:100%; height:100%; }
+.matrix-overlay{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,.55) 100%);
+}
+.mx-line{
+  font-family:"Courier New",monospace; font-size:22px; letter-spacing:4px;
+  color:#33ff66; text-shadow:0 0 12px rgba(51,255,102,.7), 0 0 28px rgba(51,255,102,.35);
+  opacity:0; transform:translateY(8px); transition:opacity .6s ease, transform .6s ease;
+  margin:8px 0; text-align:center;
+}
+.mx-line.dim{ font-size:13px; letter-spacing:2px; color:#1a8033; text-shadow:none; }
+.mx-line.show{ opacity:1; transform:none; }
+
+/* ===== Profile locked (read-only) ===== */
+.profile-locked .editable-stat{ display:none !important; }
+.profile-locked .ro-stat{ display:flex !important; }
+.ro-stat{ display:none; justify-content:space-between; align-items:center; margin:3px 0; color:var(--m); }
+.ro-stat b{ color:var(--g); font-weight:normal; }
+.ro-stat .locked-badge{
+  font-size:9px; color:var(--m); border:1px solid var(--border); padding:0 4px; margin-left:6px;
+  letter-spacing:1px;
+}
+
+/* ===== Neural damage map — asset lobes + frame ===== */
+#neural-map{
+  position:absolute;
+  top:10px; left:10px;
+  z-index:7;
+  width:156px;
+  padding:5px 6px 6px;
+  border:1px solid var(--border);
+  background:rgba(4,10,7,.94);
+  box-shadow:0 0 12px rgba(0,0,0,.55);
+  pointer-events:none;
+}
+#neural-map h4{
+  color:var(--c); font-size:9px; letter-spacing:1px; margin:0 0 4px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+#neural-map h4 span.nm-status{ color:var(--m); font-weight:normal; letter-spacing:0; font-size:8px; }
+.nm-brain{
+  position:relative;
+  width:144px;
+  aspect-ratio:805 / 665;
+  margin:0 auto;
+  background:#000;
+  overflow:hidden;
+}
+.nm-lobe{
+  position:absolute;
+  inset:0;
+  width:100%; height:100%;
+  background-color:#2a9a48;
+  -webkit-mask-size:100% 100%;
+  mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat;
+  mask-repeat:no-repeat;
+  -webkit-mask-position:center;
+  mask-position:center;
+  transition:background-color .3s, filter .3s, opacity .3s;
+  z-index:1;
+}
+#nm-frontal{ -webkit-mask-image:url('nm/frontal.png'); mask-image:url('nm/frontal.png'); }
+#nm-parietal{ -webkit-mask-image:url('nm/parietal.png'); mask-image:url('nm/parietal.png'); }
+#nm-temporal{ -webkit-mask-image:url('nm/temporal.png'); mask-image:url('nm/temporal.png'); }
+#nm-occipital{ -webkit-mask-image:url('nm/occipital.png'); mask-image:url('nm/occipital.png'); }
+#nm-cerebellum{ -webkit-mask-image:url('nm/cerebellum.png'); mask-image:url('nm/cerebellum.png'); }
+#nm-brainstem{ -webkit-mask-image:url('nm/brainstem.png'); mask-image:url('nm/brainstem.png'); }
+/* light = yellow */
+.nm-lobe.light{ background-color:#d4a820; }
+/* serious = deeper amber/yellow */
+.nm-lobe.serious{ background-color:#c87810; }
+/* critical = flashing red */
+.nm-lobe.critical{
+  background-color:#ff2030;
+  animation:nmFlashRed 0.7s ease-in-out infinite;
+}
+/* mortal = shimmer dark red → purple */
+.nm-lobe.mortal{
+  background-color:#6a1028;
+  animation:nmShimmerMort 1.4s ease-in-out infinite;
+}
+.nm-lobe.int-dmg{ background-color:#7a40c0; }
+.nm-lobe.int-fried{
+  background-color:#5a1030;
+  animation:nmShimmerMort 1.0s ease-in-out infinite;
+}
+@keyframes nmFlashRed{
+  0%,100%{ background-color:#ff2030; opacity:1; filter:brightness(1.15); }
+  50%{ background-color:#a01018; opacity:.75; filter:brightness(.85); }
+}
+@keyframes nmShimmerMort{
+  0%{ background-color:#6a1028; filter:hue-rotate(0deg) brightness(1); }
+  25%{ background-color:#801040; filter:hue-rotate(-8deg) brightness(1.1); }
+  50%{ background-color:#4a1838; filter:hue-rotate(12deg) brightness(.9); }
+  75%{ background-color:#701030; filter:hue-rotate(-5deg) brightness(1.05); }
+  100%{ background-color:#6a1028; filter:hue-rotate(0deg) brightness(1); }
+}
+.nm-legend{
+  display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px;
+  font-size:11px; color:var(--m);
+  justify-content:center;
+}
+.nm-legend span::before{
+  content:''; display:inline-block; width:10px; height:10px; margin-right:4px;
+  border:1px solid currentColor; vertical-align:middle;
+}
+.nm-legend .ok::before{ background:#2a9a48; border-color:#33ff66; }
+.nm-legend .lt::before{ background:#d4a820; border-color:#ffaa33; }
+.nm-legend .sr::before{ background:#c87810; border-color:#ffaa33; }
+.nm-legend .cr::before{ background:#ff2030; border-color:#ff3355; }
+/* +/- stat steppers in registration */
+.stepper{
+  display:inline-flex; align-items:center; gap:0;
+  border:1px solid var(--border); background:#050a07; width:100%;
+}
+.stepper button{
+  flex:0 0 32px; height:28px; padding:0; margin:0;
+  background:#0a1a10; color:var(--g); border:none;
+  border-right:1px solid var(--border); font-size:16px; line-height:1;
+  cursor:pointer; text-transform:none;
+}
+.stepper button:last-of-type{ border-right:none; border-left:1px solid var(--border); }
+.stepper button:hover{ background:#0f2818; color:#b8ffc8; box-shadow:none; }
+.stepper button:active{ background:#143020; }
+.stepper .step-val{
+  flex:1; text-align:center; color:var(--g); font-size:13px;
+  font-family:inherit; padding:4px 6px; min-width:36px;
+  user-select:none;
+}
+.boot-form label.step-label{
+  display:grid; grid-template-columns:120px 1fr; align-items:center; gap:8px;
+  margin:6px 0; font-size:12px; color:var(--m);
+}
+.mx-line.author{ font-size:15px; letter-spacing:2px; color:#7aee9a; }
+.mx-line.tagline{ font-size:12px; letter-spacing:2px; color:#1a8033; text-shadow:none; }
+
+
+/* Lord of the Flies */
+#lotf-integrity, #lotf-degradation{
+  display:none; position:absolute; left:50%; transform:translateX(-50%);
+  z-index:20; width:min(420px,70%); pointer-events:none;
+  font-family:"Courier New",monospace;
+}
+#lotf-integrity.on, #lotf-degradation.on{ display:block; }
+#lotf-integrity{ top:8px; }
+#lotf-degradation{ top:52px; }
+.lotf-label{ font-size:9px; letter-spacing:2px; color:#ff4466; text-align:center; margin-bottom:3px; text-shadow:0 0 8px rgba(255,40,60,.6); }
+.lotf-track{ height:8px; background:#1a0508; border:1px solid #5a1520; border-radius:2px; overflow:hidden; }
+.lotf-track.deg{ border-color:#7a2030; }
+.lotf-fill{ height:100%; width:0%; background:linear-gradient(90deg,#5a1018,#ff3355); box-shadow:0 0 10px rgba(255,40,60,.5); transition:width .35s ease; }
+.lotf-val{ font-size:10px; color:#ff6680; text-align:center; margin-top:2px; }
+#game-wrap.lotf-burn{
+  box-shadow: inset 0 0 0 2px rgba(255,40,60,.55), inset 0 0 40px rgba(180,0,30,.25);
+  animation: lotfBurn 2.4s ease-in-out infinite;
+}
+@keyframes lotfBurn{
+  0%,100%{ box-shadow: inset 0 0 0 2px rgba(255,40,60,.45), inset 0 0 30px rgba(180,0,30,.2); }
+  50%{ box-shadow: inset 0 0 0 3px rgba(255,60,80,.85), inset 0 0 55px rgba(255,0,40,.35); }
+}
+#shell.lotf-glitch{
+  filter: hue-rotate(-15deg) contrast(1.15) saturate(1.3);
+  transform: translateX(1px);
+}
+.lotf-ui-fly{
+  position:fixed; width:26px; height:26px; z-index:50; pointer-events:none;
+  transition: left var(--fly-dur,1.4s) linear, top var(--fly-dur,1.4s) linear;
+  opacity:0.95;
+  will-change: left, top, transform;
+}
+.lotf-ui-fly img{
+  width:100%; height:100%; object-fit:contain; image-rendering:pixelated;
+  transform: rotate(var(--fly-rot, 0deg));
+  filter: drop-shadow(0 0 4px #ff2040) drop-shadow(0 0 10px #ff1030) drop-shadow(0 0 18px rgba(255,20,40,.55));
+  animation: lotfWing 0.12s steps(2,end) infinite;
+}
+.lotf-ui-fly .fly-glow{
+  position:absolute; left:50%; top:50%; width:42px; height:42px;
+  transform:translate(-50%,-50%);
+  background: radial-gradient(circle, rgba(255,40,60,.55) 0%, rgba(255,0,30,.2) 45%, transparent 70%);
+  border-radius:50%; pointer-events:none; z-index:-1;
+  animation: lotfGlowPulse 0.5s ease-in-out infinite alternate;
+}
+.lotf-ui-fly.settled{
+  transition:none;
+  opacity:0.7;
+  animation:none;
+}
+.lotf-ui-fly.settled img{
+  animation:none;
+  transform: rotate(var(--fly-rot, 15deg));
+  filter: drop-shadow(0 0 6px #ff3050);
+}
+.lotf-ui-fly.settled .fly-glow{ opacity:0.45; animation:none; }
+@keyframes lotfWing{
+  0%{ transform: rotate(var(--fly-rot,0deg)) scaleX(1); }
+  50%{ transform: rotate(var(--fly-rot,0deg)) scaleX(0.85); }
+  100%{ transform: rotate(var(--fly-rot,0deg)) scaleX(1); }
+}
+@keyframes lotfGlowPulse{
+  from{ opacity:0.7; transform:translate(-50%,-50%) scale(0.9); }
+  to{ opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+}
+/* ambient red swarm haze over UI */
+#lotf-swarm-haze{
+  display:none; position:fixed; inset:0; z-index:45; pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 20%, rgba(180,0,30,calc(var(--haze-a,0.25)*0.9)) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 20% 70%, rgba(255,20,40,calc(var(--haze-a,0.25)*0.5)) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(255,0,30,calc(var(--haze-a,0.25)*0.45)) 0%, transparent 50%);
+  mix-blend-mode: screen;
+  opacity:0; transition: opacity .35s ease;
+}
+#lotf-swarm-haze.on{ display:block; opacity:1; }
+#lotf-swarm-haze.pulse{ animation: lotfHazePulse 0.6s ease-out; }
+@keyframes lotfHazePulse{
+  0%{ opacity:0.3; filter:brightness(1); }
+  40%{ opacity:1; filter:brightness(1.35); }
+  100%{ opacity:0.85; filter:brightness(1); }
+}
+
+
+
+/* ===== Save / Load menu ===== */
+#save-menu{
+  display:none; position:fixed; inset:0; z-index:10000;
+  background:rgba(0,8,4,.82); align-items:center; justify-content:center;
+  font-family:"Courier New",monospace;
+}
+#save-menu.on{ display:flex; }
+#save-menu .sm-panel{
+  width:min(520px,94vw); max-height:90vh; overflow:auto;
+  background:#040c08; border:1px solid #1a4a30;
+  box-shadow:0 0 40px rgba(0,255,100,.12), inset 0 0 30px rgba(0,20,10,.5);
+  padding:14px 16px 12px;
+}
+#save-menu .sm-head{ display:flex; align-items:center; margin-bottom:10px; }
+#save-menu .sm-title{ color:#33ff66; letter-spacing:3px; font-size:14px; text-shadow:0 0 8px rgba(51,255,102,.4); }
+#save-menu .sm-x{
+  margin-left:auto; background:transparent; border:1px solid #3a1520; color:#ff6680;
+  font-size:18px; line-height:1; padding:2px 10px; cursor:pointer;
+}
+#save-menu .sm-x:hover{ border-color:#ff3355; }
+#save-menu .sm-tabs{ display:flex; gap:6px; margin-bottom:12px; }
+#save-menu .sm-tab{
+  flex:1; padding:6px; background:#06140c; border:1px solid #1a3a28; color:#6a9a7a;
+  letter-spacing:2px; cursor:pointer; font-size:11px;
+}
+#save-menu .sm-tab.on{ border-color:#33ff66; color:#33ff66; box-shadow:0 0 10px rgba(51,255,102,.2); }
+#save-menu .sm-slots{ display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+#save-menu .sm-slot{
+  display:grid; grid-template-columns:36px 1fr auto; gap:8px; align-items:center;
+  border:1px solid #1a3024; background:#030a06; padding:8px 10px;
+}
+#save-menu .sm-slot:hover{ border-color:#2a5a3a; }
+#save-menu .sm-slot.empty{ opacity:0.75; }
+#save-menu .sm-num{
+  font-size:18px; color:#33ccff; text-align:center; text-shadow:0 0 6px rgba(51,204,255,.35);
+}
+#save-menu .sm-name{ display:block; color:#e0ffe8; font-size:12px; }
+#save-menu .sm-meta{ display:block; color:#6a9a7a; font-size:10px; margin-top:2px; }
+#save-menu .sm-date{ display:block; color:#4a6a58; font-size:9px; margin-top:2px; }
+#save-menu .sm-empty{ color:#3a5a48; font-size:11px; }
+#save-menu .sm-actions{ display:flex; gap:4px; }
+#save-menu .sm-act{
+  padding:4px 8px; font-size:10px; letter-spacing:1px; cursor:pointer;
+  background:#06140c; border:1px solid #1a3a28; color:#8aba9a;
+}
+#save-menu .sm-act.save{ border-color:#1a4a30; color:#33ff66; }
+#save-menu .sm-act.load{ border-color:#1a3a4a; color:#33ccff; }
+#save-menu .sm-act.del{ border-color:#4a1520; color:#ff6680; }
+#save-menu .sm-act:hover{ filter:brightness(1.2); }
+#save-menu .sm-foot{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+#save-menu .sm-label{ color:#6a9a7a; font-size:11px; display:flex; align-items:center; gap:6px; flex:1; }
+#save-menu .sm-label input{
+  flex:1; min-width:120px; background:#020604; border:1px solid #1a3024; color:#c0ffd0;
+  padding:4px 6px; font-family:inherit; font-size:11px;
+}
+#save-menu .sm-btn{
+  padding:5px 10px; font-size:10px; letter-spacing:1px; cursor:pointer;
+  background:#06140c; border:1px solid #1a3a28; color:#8aba9a;
+}
+#save-menu .sm-btn.cyan{ border-color:#1a4a5a; color:#33ccff; }
+#save-menu .sm-hint{ color:#4a7a5a; font-size:10px; min-height:14px; }
+#save-menu .sm-hint.ok{ color:#33ff66; }
+#save-menu .sm-hint.bad{ color:#ff6680; }
+
+
+/* ===== QTE overlay ===== */
+#qte-overlay{
+  display:none; position:fixed; inset:0; z-index:12000;
+  background:rgba(0,0,0,.72); align-items:center; justify-content:center;
+  font-family:"Courier New",monospace;
+}
+#qte-overlay.on{ display:flex; }
+#qte-overlay .qte-panel{
+  width:min(440px,92vw); padding:18px 20px 16px;
+  background:#0a0508; border:2px solid #ff3355;
+  box-shadow:0 0 40px rgba(255,30,50,.35), inset 0 0 30px rgba(80,0,20,.4);
+  text-align:center;
+}
+#qte-overlay.fly .qte-panel{ border-color:#ff2040; }
+#qte-overlay .qte-tag{
+  font-size:10px; letter-spacing:4px; color:#ff6680; margin-bottom:6px;
+}
+#qte-overlay .qte-title{
+  font-size:16px; letter-spacing:3px; color:#ffe0e8; margin-bottom:14px;
+  text-shadow:0 0 12px rgba(255,40,60,.6);
+}
+#qte-overlay .qte-seq{
+  display:flex; justify-content:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;
+}
+#qte-overlay .qte-ch{
+  width:36px; height:42px; line-height:42px;
+  border:1px solid #5a2030; background:#14080c; color:#ffccdd; font-size:20px; font-weight:bold;
+  box-shadow:0 0 8px rgba(255,40,60,.2);
+}
+#qte-overlay .qte-ch.hit{
+  border-color:#33ff66; color:#33ff66; background:#0a1810;
+  box-shadow:0 0 12px rgba(51,255,102,.35);
+}
+#qte-overlay .qte-input{
+  min-height:18px; color:#33ccff; letter-spacing:4px; font-size:12px; margin-bottom:10px;
+}
+#qte-overlay .qte-bar{
+  height:8px; background:#1a080c; border:1px solid #4a1520; overflow:hidden; margin-bottom:8px;
+}
+#qte-overlay .qte-fill{
+  height:100%; width:100%; background:linear-gradient(90deg,#ff2040,#ffaa33);
+  box-shadow:0 0 10px rgba(255,40,60,.5);
+}
+#qte-overlay .qte-hint{ font-size:10px; color:#8a5060; letter-spacing:2px; }
+#qte-overlay.shake .qte-panel{ animation: qteShake 0.12s linear; }
+#qte-overlay.success .qte-panel{ border-color:#33ff66; box-shadow:0 0 40px rgba(51,255,102,.4); }
+#qte-overlay.fail .qte-panel{ border-color:#ff0030; box-shadow:0 0 50px rgba(255,0,40,.55); }
+@keyframes qteShake{
+  0%,100%{ transform:translateX(0); }
+  25%{ transform:translateX(-6px); }
+  75%{ transform:translateX(6px); }
+}
+
 </style>
 </head>
 <body>
+<div id="matrix-boot"></div>
 <div id="tip" role="tooltip"></div>
 <div id="crt-scan"></div><div id="crt-vignette"></div><div id="crt-noise"></div><div id="crt-glitch"></div>
+
+<div id="boot-screen">
+  <div class="boot-logo">NETRUN TERMINAL</div>
+  <div class="boot-sub">CP2020 · SECURE INTERFACE · PROFILE GATE</div>
+  <div class="boot-panel">
+    <div id="boot-select">
+      <h2>SELECT NETRUNNER</h2>
+      <div class="boot-actions">
+        <button type="button" id="btn-boot-create" class="cyan">REGISTER NEW</button>
+        <button type="button" id="btn-boot-import" class="amber">IMPORT PROFILE</button>
+      </div>
+      <div class="profile-cards" id="profile-cards"></div>
+    </div>
+    <div id="boot-create" class="hidden boot-form">
+      <h2>REGISTER NETRUNNER</h2>
+      <p class="hint">Stats feed Interface combat. Body Type sets BTM — subtracted from each wound hit (min 1). Cyberdeck CPU cores affect multitasking flavour only. Export the profile JSON to share with another player.</p>
+      <label>HANDLE <input id="pf-handle" value="Ghost" maxlength="24" /></label>
+      <label>REAL NAME <input id="pf-real" value="Orest Rozalski" maxlength="40" /></label>
+      <label class="step-label">INT
+        <div class="stepper" data-target="pf-int" data-min="1" data-max="10">
+          <button type="button" class="step-minus" aria-label="decrease">−</button>
+          <span class="step-val" id="pf-int-val">8</span>
+          <input type="hidden" id="pf-int" value="8" />
+          <button type="button" class="step-plus" aria-label="increase">+</button>
+        </div>
+      </label>
+      <label class="step-label">REF
+        <div class="stepper" data-target="pf-ref" data-min="1" data-max="10">
+          <button type="button" class="step-minus" aria-label="decrease">−</button>
+          <span class="step-val" id="pf-ref-val">7</span>
+          <input type="hidden" id="pf-ref" value="7" />
+          <button type="button" class="step-plus" aria-label="increase">+</button>
+        </div>
+      </label>
+      <label class="step-label">COOL
+        <div class="stepper" data-target="pf-cool" data-min="1" data-max="10">
+          <button type="button" class="step-minus" aria-label="decrease">−</button>
+          <span class="step-val" id="pf-cool-val">6</span>
+          <input type="hidden" id="pf-cool" value="6" />
+          <button type="button" class="step-plus" aria-label="increase">+</button>
+        </div>
+      </label>
+      <label class="step-label">INTERFACE
+        <div class="stepper" data-target="pf-iface" data-min="0" data-max="10">
+          <button type="button" class="step-minus" aria-label="decrease">−</button>
+          <span class="step-val" id="pf-iface-val">6</span>
+          <input type="hidden" id="pf-iface" value="6" />
+          <button type="button" class="step-plus" aria-label="increase">+</button>
+        </div>
+      </label>
+      <label>BODY TYPE
+        <select id="pf-body">
+          <option value="very_weak">Very Weak (BTM 0)</option>
+          <option value="weak">Weak (BTM −1)</option>
+          <option value="average" selected>Average (BTM −2)</option>
+          <option value="strong">Strong (BTM −3)</option>
+          <option value="very_strong">Very Strong (BTM −4)</option>
+          <option value="superhuman">Superhuman (BTM −5)</option>
+        </select>
+      </label>
+      <label>BTM <b id="pf-btm" style="color:var(--a)">−2</b></label>
+      <h2 style="margin-top:14px">CYBERDECK</h2>
+      <label>MODEL / NAME <input id="pf-deckname" value="Toshiba T-3600" maxlength="32" /></label>
+      <label class="step-label">CPU CORES
+        <div class="stepper" data-target="pf-cpu" data-min="1" data-max="8">
+          <button type="button" class="step-minus" aria-label="decrease">−</button>
+          <span class="step-val" id="pf-cpu-val">2</span>
+          <input type="hidden" id="pf-cpu" value="2" />
+          <button type="button" class="step-plus" aria-label="increase">+</button>
+        </div>
+      </label>
+      <label class="step-label">SPEED
+        <div class="stepper" data-target="pf-spd" data-min="0" data-max="5">
+          <button type="button" class="step-minus" aria-label="decrease">−</button>
+          <span class="step-val" id="pf-spd-val">2</span>
+          <input type="hidden" id="pf-spd" value="2" />
+          <button type="button" class="step-plus" aria-label="increase">+</button>
+        </div>
+      </label>
+      <label class="step-label">DATA WALL
+        <div class="stepper" data-target="pf-dw" data-min="0" data-max="10">
+          <button type="button" class="step-minus" aria-label="decrease">−</button>
+          <span class="step-val" id="pf-dw-val">4</span>
+          <input type="hidden" id="pf-dw" value="4" />
+          <button type="button" class="step-plus" aria-label="increase">+</button>
+        </div>
+      </label>
+      <label class="step-label">MEMORY (MU)
+        <div class="stepper" data-target="pf-mu" data-min="1" data-max="40">
+          <button type="button" class="step-minus" aria-label="decrease">−</button>
+          <span class="step-val" id="pf-mu-val">20</span>
+          <input type="hidden" id="pf-mu" value="20" />
+          <button type="button" class="step-plus" aria-label="increase">+</button>
+        </div>
+      </label>
+      <p class="hint">Speed adds to initiative (REF + Speed + 1d10). Data Wall defends against ICE. MU limits loaded programs.</p>
+      <div class="boot-actions" style="margin-top:14px">
+        <button type="button" id="btn-boot-save" class="cyan">CREATE &amp; ENTER</button>
+        <button type="button" id="btn-boot-back" class="red">BACK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="shell">
 <header>
-  <div class="title">NETRUN TERMINAL // ISO 1.6.6</div>
+  <div class="title">NETRUN TERMINAL // ISO 1.6.45</div>
   <div class="ver">Cyberpunk 2020 · 5 spaces + 1 Menu action · STR+1d10</div>
+  <div id="hdr-loc" title="LDL location">—</div>
   <div id="net-clock" title="Net-time · +1s per completed turn">2032-08-01 · 00:00:00</div>
   <div class="btns">
     <button id="btn-load" class="cyan">LOAD JSON</button>
     <button id="btn-netmap" class="cyan">NETMAP</button>
     <button id="btn-sample" class="amber">SAMPLE FORT</button>
     <button id="btn-end" class="red">END TURN</button>
-    <button id="btn-gh-update" class="cyan" title="Check GitHub Releases for full app update">GH UPDATE</button>
-    <button id="btn-update" class="amber" title="Install offline .zip renderer patch">OFFLINE ZIP</button>
+    <button id="btn-save" class="cyan" title="Save game slot">SAVE</button>
+    <button id="btn-loadsave" class="amber" title="Load game slot">LOAD SAVE</button>
+    <button id="btn-update" class="amber" title="Install offline .zip update">UPDATE</button>
+    <button id="btn-exit" class="red-exit" title="Quit">EXIT</button>
   </div>
 </header>
 <aside class="panel" id="left">
-  <h3>NETRUNNER</h3>
-  <div class="stat-row"><span>HANDLE</span><input id="nr-name" class="wide" value="Ghost" /></div>
-  <div class="stat-row"><span>INT</span><input id="nr-int" type="number" value="8" min="1" max="10" /></div>
-  <div class="stat-row"><span>REF</span><input id="nr-ref" type="number" value="7" min="1" max="10" /></div>
-  <div class="stat-row"><span>COOL</span><input id="nr-cool" type="number" value="6" min="1" max="10" /></div>
-  <div class="stat-row"><span>INTERFACE</span><input id="nr-iface" type="number" value="6" min="0" max="10" /></div>
+  <h3>NETRUNNER DOSSIER</h3>
+  <div id="dossier">
+    <div id="dossier-photo"><canvas id="dossier-canvas" width="72" height="88"></canvas><div class="scan"></div></div>
+    <div id="dossier-meta">
+      <div class="handle" id="dossier-handle">GHOST</div>
+      <div class="realname">Orest Rozalski</div>
+      <div class="idline">ID // NETRUNNER · INTERFACE</div>
+      <div class="stat-row editable-stat" style="margin-top:6px"><span>HANDLE</span><input id="nr-name" class="wide" value="Ghost" /></div>
+      <div class="ro-stat" style="margin-top:6px"><span>HANDLE</span><b id="nr-name-ro">Ghost</b><span class="locked-badge">LOCK</span></div>
+    </div>
+  </div>
+  <div class="stat-row editable-stat"><span>INT</span><input id="nr-int" type="number" value="8" min="1" max="10" /></div>
+  <div class="ro-stat"><span>INT</span><b id="nr-int-ro">8</b></div>
+  <div class="stat-row editable-stat"><span>REF</span><input id="nr-ref" type="number" value="7" min="1" max="10" /></div>
+  <div class="ro-stat"><span>REF</span><b id="nr-ref-ro">7</b></div>
+  <div class="stat-row editable-stat"><span>COOL</span><input id="nr-cool" type="number" value="6" min="1" max="10" /></div>
+  <div class="ro-stat"><span>COOL</span><b id="nr-cool-ro">6</b></div>
+  <div class="stat-row editable-stat"><span>INTERFACE</span><input id="nr-iface" type="number" value="6" min="0" max="10" /></div>
+  <div class="ro-stat"><span>INTERFACE</span><b id="nr-iface-ro">6</b></div>
+  <div class="stat-row editable-stat"><span>BODY TYPE</span>
+    <select id="nr-body" style="flex:1;background:#050a07;border:1px solid var(--border);color:var(--g);font-family:inherit;font-size:11px;padding:2px 4px">
+      <option value="very_weak">Very Weak</option>
+      <option value="weak">Weak</option>
+      <option value="average" selected>Average</option>
+      <option value="strong">Strong</option>
+      <option value="very_strong">Very Strong</option>
+      <option value="superhuman">Superhuman</option>
+    </select>
+  </div>
+  <div class="ro-stat"><span>BODY TYPE</span><b id="nr-body-ro">Average</b></div>
+  <div class="stat-row"><span>BTM</span><b id="nr-btm">−2</b></div>
   <div class="stat-row"><span>WOUNDS</span><b id="nr-wounds">0</b></div>
   <div class="stat-row"><span>INT DAMAGE</span><b id="nr-intdmg">0</b></div>
+  <div class="stat-row"><span>STATUS</span><b id="nr-status">OK</b></div>
+
   <h3>CYBERDECK</h3>
-  <div class="stat-row"><span>SPEED</span><input id="deck-spd" type="number" value="2" min="0" max="5" /></div>
-  <div class="stat-row"><span>DATA WALL</span><input id="deck-dw" type="number" value="4" min="0" max="10" /></div>
-  <div class="stat-row"><span>MEMORY (MU)</span><input id="deck-mu" type="number" value="20" min="10" max="40" /></div>
+  <div class="stat-row editable-stat"><span>MODEL</span><input id="deck-name" class="wide" value="Toshiba T-3600" /></div>
+  <div class="ro-stat"><span>MODEL</span><b id="deck-name-ro">Toshiba T-3600</b></div>
+  <div class="stat-row editable-stat"><span>CPU</span><input id="deck-cpu" type="number" value="2" min="1" max="8" /></div>
+  <div class="ro-stat"><span>CPU</span><b id="deck-cpu-ro">2</b></div>
+  <div class="stat-row editable-stat"><span>SPEED</span><input id="deck-spd" type="number" value="2" min="0" max="5" /></div>
+  <div class="ro-stat"><span>SPEED</span><b id="deck-spd-ro">2</b></div>
+  <div class="stat-row editable-stat"><span>DATA WALL</span><input id="deck-dw" type="number" value="4" min="0" max="10" /></div>
+  <div class="ro-stat"><span>DATA WALL</span><b id="deck-dw-ro">4</b></div>
+  <div class="stat-row editable-stat"><span>MEMORY (MU)</span><input id="deck-mu" type="number" value="20" min="10" max="40" /></div>
+  <div class="ro-stat"><span>MEMORY (MU)</span><b id="deck-mu-ro">20</b></div>
   <div class="stat-row"><span>MU USED</span><b id="mu-used">0 / 20</b></div>
   <div class="stat-row"><span>BUFFS</span><b id="nr-buffs">—</b></div>
+
   <h3>PROGRAMS <button id="btn-add-prog" style="float:right;padding:1px 6px">+</button></h3>
   <p style="color:var(--m);font-size:10px;margin-bottom:4px">Select Demon → <b style="color:var(--a)">→D</b> on another prog to load · ⏏ eject · R to RUN</p>
   <div id="prog-list"></div>
@@ -170,12 +999,42 @@ footer kbd{border:1px solid var(--border);padding:0 4px;color:var(--gd)}
 </aside>
 <div id="game-wrap">
   <div id="hud-top">LOAD A DATAFORT TO BEGIN</div>
+  <div id="neural-map">
+    <h4>NEURAL <span class="nm-status" id="nm-status">NOMINAL</span></h4>
+    <div class="nm-brain">
+      <div id="nm-frontal" class="nm-lobe"></div>
+      <div id="nm-parietal" class="nm-lobe"></div>
+      <div id="nm-temporal" class="nm-lobe"></div>
+      <div id="nm-occipital" class="nm-lobe"></div>
+      <div id="nm-cerebellum" class="nm-lobe"></div>
+      <div id="nm-brainstem" class="nm-lobe"></div>
+    </div>
+    <div class="nm-legend">
+      <span class="ok">OK</span>
+      <span class="lt">Ylw</span>
+      <span class="sr">Amb</span>
+      <span class="cr">Red+</span>
+    </div>
+  </div>
+
   <div id="map-tools">
     <button type="button" id="btn-rot-ccw" title="Rotate CCW">⟲</button>
     <button type="button" id="btn-rot-cw" title="Rotate CW">⟳</button>
     <button type="button" id="btn-rot-reset" title="Reset rotation">⌖</button>
   </div>
   <div id="drop-hint">DROP CYBERSMILY JSON HERE</div>
+  <div id="citygrid-overlay">
+    <div id="citygrid-top">
+      <h2 id="citygrid-title">CITY GRID</h2>
+      <div class="hint" id="citygrid-note" style="color:var(--m);font-size:11px;flex:1"></div>
+      <button class="cyan" id="citygrid-enter" title="Load SAMPLE fort in this city">ENTER FORT</button>
+      <button class="red" id="citygrid-close">CLOSE</button>
+    </div>
+    <div style="display:flex;flex:1;min-height:0;gap:8px">
+      <div id="citygrid-canvas-wrap"><canvas id="citygrid-canvas"></canvas></div>
+      <div id="citygrid-side"><h4 style="color:var(--c)">NODES</h4><div id="citygrid-list"></div></div>
+    </div>
+  </div>
   <div id="netmap-overlay">
     <div id="netmap-top">
       <h2>NETMAP // WORLD GRID</h2>
@@ -202,21 +1061,33 @@ footer kbd{border:1px solid var(--border);padding:0 4px;color:var(--gd)}
     </div>
   </div>
   <div id="fx-layer"></div>
-    <div id="phaser-host"></div>
+  <div id="phaser-host"></div>
+  <div id="map-chrome">
+    <div id="ai-panel">
+      <h4>◆ SYS / AI CHANNEL</h4>
+      <div id="ai-feed"><div class="ai-line"><b>SYS</b> Channel open. Waiting for signal…</div></div>
+    </div>
+    <div id="cmd-line">
+      <span class="prompt">&gt;</span>
+      <input id="cmd-input" type="text" spellcheck="false" autocomplete="off"
+        placeholder="command  ·  help · status · netmap · jackout · clear · say …" />
+    </div>
+  </div>
 </div>
 <aside class="panel right" id="right">
   <h3>NET STATUS</h3>
-  <div class="stat-row"><span>TURN</span><b id="st-turn">—</b></div>
-  <div class="stat-row"><span>MOVE LEFT</span><b id="st-move">5</b></div>
-  <div class="stat-row"><span>MENU ACTION</span><b id="st-act">1</b></div>
-  <div class="stat-row"><span>ALARM</span><b id="st-alarm">0</b></div>
-  <div class="stat-row"><span>TRACE Σ</span><b id="st-trace">0</b></div>
-  <div class="stat-row"><span>LOCATION</span><b id="st-loc">—</b></div>
-  <div class="stat-row"><span>FORTRESS</span><b id="st-fort">none</b></div>
-  <div class="stat-row"><span>CPU / INT</span><b id="st-cpu">—</b></div>
-  <div class="stat-row"><span>DATAWALL</span><b id="st-dw">—</b></div>
+  <div class="stat-row st-turn-row" style="display:none"><span>TURN</span><b id="st-turn">—</b></div>
+  <div class="stat-row"><span>MOVE</span><b id="st-move">5</b></div>
+  <div class="stat-row"><span>ACTION</span><b id="st-act">1</b></div>
+  <div class="stat-row" id="row-alarm"><span>ALARM</span><b id="st-alarm">0</b></div>
+  <div class="stat-row" id="row-trace" style="display:none"><span>TRACE Σ</span><b id="st-trace">0</b></div>
+  <!-- hidden anchors kept for JS -->
+  <b id="st-loc" style="display:none">—</b>
+  <b id="st-fort" style="display:none">none</b>
+  <b id="st-cpu" style="display:none">—</b>
+  <b id="st-dw" style="display:none">—</b>
   <div id="init-box">Initiative at combat start.<br/>Runner: <b>REF + Speed + 1d10</b><br/>System: <b>INT + 1d10</b></div>
-  <h3>MENU <span style="color:var(--m);font-weight:normal">(1 action)</span></h3>
+  <h3>MENU</h3>
   <div class="menu-grid">
     <button id="m-ldl" class="amber">LDL LINK</button>
     <button id="m-run" class="cyan" disabled>RUN PROGRAM</button>
@@ -226,30 +1097,50 @@ footer kbd{border:1px solid var(--border);padding:0 4px;color:var(--gd)}
     <button id="m-jackout" class="amber">LOG OFF</button>
     <button id="m-end" class="red">END TURN</button>
   </div>
-  <p style="color:var(--m);font-size:10px;margin-top:6px;line-height:1.4">
-    <b style="color:var(--g)">Intrusion</b> → adjacent datawall<br/>
-    <b style="color:var(--a)">Decryption</b> → adjacent codegate<br/>
-    <b style="color:var(--r)">Anti-IC / Anti-Pers</b> → adjacent ICE<br/>
-    Closed gates &amp; ICE block movement
+  <p class="menu-hint" style="color:var(--m);font-size:10px;margin-top:6px;line-height:1.4" title="Intrusion→wall · Decryption→gate · Anti-IC→ICE">
   </p>
-  <h3>NET LOG</h3>
-  <div id="log"></div>
+  <div id="log-section">
+    <h3>NET LOG
+      <span id="log-tools">
+        <button type="button" id="btn-log-clear" class="amber" title="Clear log">CLR</button>
+        <button type="button" id="btn-log-copy" class="cyan" title="Copy log to clipboard">COPY</button>
+      </span>
+    </h3>
+    <div id="log" role="log" aria-live="polite"></div>
+  </div>
 </aside>
 <footer>
-  <span><kbd>WASD</kbd>/<kbd>↑↓←→</kbd> move</span>
-  <span><kbd>R</kbd> run program</span>
-  <span><kbd>T</kbd> end turn</span>
+  <div id="foot-loc">
+    <span>LOC <b id="foot-loc-city">—</b></span>
+    <span class="sep">│</span>
+    <span class="fort" id="foot-loc-fort">no fort</span>
+  </div>
+  <span><kbd>WASD</kbd> move</span>
+  <span><kbd>R</kbd> run</span>
+  <span><kbd>T</kbd> end</span>
   <span><kbd>L</kbd> load</span>
-  <span><kbd>F3</kbd> debug</span>
-  <span><kbd>F4</kbd> CRT</span>
-  <span>wheel zoom · RMB pan</span>
-  <span style="margin-left:auto;color:var(--gd)">v1.6.5 · modular</span>
+  <span style="margin-left:auto;color:var(--gd)">v1.6.35</span>
 </footer>
 </div>
+<div id="hud-flash" aria-hidden="true"></div>
+<div id="flatline-screen" aria-live="assertive">
+  <div class="fl-title">FLATLINE</div>
+  <div class="fl-sub">NEURAL LINK LOST · ACCOUNT SEALED</div>
+</div>
+<div id="idle-net">
+  <div class="net-word" id="idle-net-word">NET</div>
+  <div class="sub">SIGNAL IDLE — MOVE TO WAKE</div>
+</div>
+<script src="programs.js"></script>
+<script src="profile.js"></script>
 <script src="data.js"></script>
+<script src="citygrids.js"></script>
 <script src="core.js"></script>
+<script src="saves.js"></script>
 <script src="demons.js"></script>
+<script src="lordflies.js"></script>
 <script src="fort.js"></script>
+<script src="qte.js"></script>
 <script src="combat.js"></script>
 <script src="netmap.js"></script>
 <script src="netmap-ui.js"></script>

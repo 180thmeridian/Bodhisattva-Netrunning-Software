@@ -45,3 +45,4 @@ if not exist "node_modules\electron\package.json" (
 echo Starting Netrun Terminal ^(dev^)...
 call "!NPM_CMD!" start
 if errorlevel 1 pause
+endlocal

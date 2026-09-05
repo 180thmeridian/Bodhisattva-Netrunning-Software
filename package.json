@@ -1,14 +1,13 @@
 {
   "name": "cp2020-netrun-terminal",
-  "version": "1.6.6",
-  "description": "CP2020 Netrun Terminal — offline Phaser helper",
+  "version": "1.6.45",
+  "description": "CP2020 Netrun Terminal — offline Phaser helper for Cyberpunk 2020 netrunning",
   "main": "main.js",
   "author": "Netrun Terminal",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dist:win": "electron-builder --win portable --x64",
-    "dist:win:full": "electron-builder --win portable --win nsis --x64",
+    "dist:win": "electron-builder --win nsis --x64",
     "make-update": "node tools/make-update.cjs"
   },
   "dependencies": {
@@ -42,14 +41,18 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": ["x64"]
         }
       ],
       "signAndEditExecutable": false
     },
-    "portable": {
-      "artifactName": "CP2020-Netrun-Terminal-${version}-portable.exe"
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "CP2020-Netrun-Terminal-${version}-Setup.exe"
     },
     "forceCodeSigning": false,
     "asar": true

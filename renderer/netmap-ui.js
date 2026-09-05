@@ -3,9 +3,11 @@ function ldlById(id){ return LDL_DB.find(l=>l.id===id); }
 function currentLdl(){ return ldlById(S.netLoc); }
 window.ldlById=ldlById; window.currentLdl=currentLdl;
 function ldlDist(a,b){
-  // continuous map coords → net-spaces (ceil Manhattan)
-  const dx=Math.abs(a.x-b.x), dy=Math.abs(a.y-b.y);
-  return Math.max(1, Math.ceil(dx+dy-1e-9));
+  // continuous map coords → net-spaces (Manhattan, rounded up)
+  if(!a||!b) return 99;
+  if(a.id && b.id && a.id===b.id) return 0;
+  const dx=Math.abs((a.x||0)-(b.x||0)), dy=Math.abs((a.y||0)-(b.y||0));
+  return Math.max(1, Math.ceil(dx + dy - 1e-9));
 }
 window.ldlDist=ldlDist;
 function openNetMap(){
@@ -68,11 +70,20 @@ function renderNetMap(){
   const sorted=[...LDL_DB].sort((a,b)=>a.city.localeCompare(b.city));
   sorted.forEach(l=>{
     const card=document.createElement('div');
-    card.className='ldl-card'+(l.id===S.netLoc?' here':'');
     const dist=cur?ldlDist(cur,l):99;
+    const here=l.id===S.netLoc;
+    const inRange=!here && dist<=(S.netMoveLeft||0);
+    card.className='ldl-card'+(here?' here':'')+(inRange?' range':'');
     card.innerHTML=`<div class="city">${l.city}</div>
-      <div class="meta">${l.region} · SEC ${l.sec} · TRACE ${l.trace} · Δ${dist}</div>`;
+      <div class="meta">${l.region} · SEC ${l.sec} · TRACE ${l.trace} · Δ${dist}${inRange?' · IN RANGE':''}</div>`;
     card.onclick=()=>tryNetTravel(l.id);
+    if(window.CITY_GRIDS && CITY_GRIDS[l.id]){
+      const b=document.createElement('button');
+      b.className='cyan'; b.style.cssText='margin-top:4px;padding:2px 6px;font-size:9px';
+      b.textContent='CITY GRID';
+      b.onclick=e=>{e.stopPropagation(); openCityGrid(l.id);};
+      card.appendChild(b);
+    }
     grid.appendChild(card);
   });
   drawWorldNetMap();
@@ -82,14 +93,30 @@ function renderNetMap(){
 function updateLocHud(){
   const el=document.getElementById('st-loc');
   const tr=document.getElementById('st-trace');
-  if(tr) tr.textContent=S.traceTotal;
-  if(el){
-    const c=currentLdl();
-    el.textContent=c?c.city.slice(0,14):'—';
+  const hdr=document.getElementById('hdr-loc');
+  const footCity=document.getElementById('foot-loc-city');
+  const footFort=document.getElementById('foot-loc-fort');
+  if(tr){
+    tr.textContent=S.traceTotal||0;
+    const row=document.getElementById('row-trace');
+    if(row) row.style.display = (S.traceTotal>0) ? 'flex' : 'none';
+  }
+  const c=currentLdl();
+  const city = c ? c.city : '—';
+  if(el) el.textContent = city.slice(0,14);
+  if(hdr) hdr.textContent = c ? (c.city + (c.region?(' · '+c.region):'')) : 'NO LDL';
+  if(footCity) footCity.textContent = city;
+  if(footFort){
+    footFort.textContent = S.fort ? S.fort.name : 'no fort';
+    footFort.title = S.fort ? (S.fort.name + ' · CPU '+(S.fort.cpu||'?')+' · INT '+(S.fort.int||'?')) : '';
   }
 }
 function tryNetTravel(targetId){
-  if(targetId===S.netLoc){ log('Already at this LDL.','sys'); return; }
+  if(targetId===S.netLoc){
+    log('Already at this LDL.','sys');
+    if(window.CITY_GRIDS && CITY_GRIDS[targetId]) openCityGrid(targetId);
+    return;
+  }
   const cur=currentLdl(); const tgt=ldlById(targetId);
   if(!cur||!tgt) return;
   const dist=ldlDist(cur,tgt);
@@ -97,12 +124,14 @@ function tryNetTravel(targetId){
     log(`Too far (Δ${dist}). Net-move left: ${S.netMoveLeft}. End turn or LDL LINK.`,'bad');
     return;
   }
-  // spend net movement
   S.netMoveLeft-=dist;
+  if(!S.pathTrace || !S.pathTrace.length) S.pathTrace=[cur.id];
   S.netLoc=targetId;
   S.pathTrace.push(targetId);
   S.traceTotal+=tgt.trace;
   log(`LDL hop → ${tgt.city} (Δ${dist}) · Trace +${tgt.trace} = ${S.traceTotal}`,'ok');
+  if(typeof aiMsg==='function') aiMsg('LDL',`Hop → ${tgt.city} (Δ${dist}) · Trace ${S.traceTotal}`);
+  if(window.CITY_GRIDS && CITY_GRIDS[targetId]) log('City grid available — CITY GRID button on node list.','sys');
   renderNetMap();
   updateLocHud();
   if(typeof refreshClock==='function') refreshClock();
@@ -142,7 +171,11 @@ function doLdlLink(){
     }
   }
   updateHUD(); updateLocHud();
-  if(typeof refreshClock==='function') refreshClock();
+refreshClock();
+document.getElementById('btn-rot-cw') && (document.getElementById('btn-rot-cw').onclick=()=>rotateMap(1));
+document.getElementById('btn-rot-ccw') && (document.getElementById('btn-rot-ccw').onclick=()=>rotateMap(-1));
+document.getElementById('btn-rot-reset') && (document.getElementById('btn-rot-reset').onclick=()=>{ S.mapRot=0; if(S.scene) S.scene.rebuildMap(); log('Map rotation reset.','sys'); });
+
 }
 function onHellhoundTrace(){
   // called when jackout with live Hellhound somewhere
@@ -178,7 +211,7 @@ function doCopy(){
   const c=cellAt(S.runner.x,S.runner.y);
   if(c&&(c.type==='mu'||c.type==='cpu')){
     const files=S.fort.files||[];
-    if(files.length){ const f=files[Math.floor(rng()*files.length)]; S.loot.push(f);
+    if(files.length){ const f=files[Math.floor(Math.random()*files.length)]; S.loot.push(f);
       log(`COPY · "${f.key||f.name}" (${f.value||'?'} MU)`,'ok'); }
     else log('COPY · empty node.','sys');
   } else log('COPY · stand on MU/CPU.','sys');

@@ -183,11 +183,14 @@
       ctx.setLineDash([]);
     }
 
-    const moveLeft=S.netMoveLeft||0;
+    const moveLeft = (typeof S.netMoveLeft === 'number') ? S.netMoveLeft : 5;
     LDL_DB.forEach(l=>{
       const s=toS(l.x,l.y);
       const here=l.id===S.netLoc;
-      const dist=cur && typeof window.ldlDist==='function' ? window.ldlDist(cur,l) : 99;
+      let dist=99;
+      if(cur && typeof window.ldlDist==='function'){
+        try{ dist=window.ldlDist(cur,l); }catch(_e){ dist=99; }
+      }
       const inRange=!here && dist<=moveLeft;
       const sz=here?7:5;
       if(here){

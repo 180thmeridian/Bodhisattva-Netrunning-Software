@@ -33,3 +33,4 @@ session.json
 .env
 .env.local
 NETRUN_DEV
+build.bat

@@ -25,7 +25,7 @@ const manifest = {
   version: ver,
   minVersion: '1.6.0',
   created: new Date().toISOString(),
-  notes: 'Offline renderer patch'
+  notes: 'QTE typing sequences vs Black ICE and LotF flies'
 };
 fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify(manifest, null, 2));
 fs.writeFileSync(path.join(stage, 'version.txt'), ver + '\n');

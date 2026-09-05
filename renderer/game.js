@@ -25,7 +25,8 @@
     else if(k==='t') endTurn();
     else if(k==='l') document.getElementById('btn-load')?.click();
     else if(e.key==='F3'){ e.preventDefault(); toggleDebug(); }
-    else if(e.key==='F4'){ e.preventDefault(); toggleCrt(); }
+    else if(e.key==='F5'){ e.preventDefault(); if(typeof openSaveMenu==='function') openSaveMenu('save'); }
+    else if(e.key==='F9'){ e.preventDefault(); if(typeof openSaveMenu==='function') openSaveMenu('load'); }
   });
 
   // Deck MU inputs
@@ -35,6 +36,8 @@
   });
 
   // Buttons
+  document.getElementById('btn-save') && (document.getElementById('btn-save').onclick=()=>{ if(typeof promptSaveUI==='function') promptSaveUI(); });
+  document.getElementById('btn-loadsave') && (document.getElementById('btn-loadsave').onclick=()=>{ if(typeof promptLoadUI==='function') promptLoadUI(); });
   document.getElementById('btn-sample') && (document.getElementById('btn-sample').onclick=()=>loadFort(SAMPLE_FORT));
   document.getElementById('btn-load') && (document.getElementById('btn-load').onclick=async()=>{
     if(window.netrunAPI && window.netrunAPI.openJsonFile){
@@ -62,6 +65,12 @@
   document.getElementById('m-jackout') && (document.getElementById('m-jackout').onclick=doJackout);
   document.getElementById('m-end') && (document.getElementById('m-end').onclick=()=>endTurn());
   document.getElementById('btn-end') && (document.getElementById('btn-end').onclick=()=>endTurn());
+  document.getElementById('btn-log-clear') && (document.getElementById('btn-log-clear').onclick=()=>clearNetLog());
+  document.getElementById('btn-log-copy') && (document.getElementById('btn-log-copy').onclick=()=>copyNetLog());
+  document.getElementById('btn-exit') && (document.getElementById('btn-exit').onclick=()=>{
+    if(window.netrunAPI && window.netrunAPI.quitApp) window.netrunAPI.quitApp();
+    else window.close();
+  });
   document.getElementById('btn-add-prog') && (document.getElementById('btn-add-prog').onclick=()=>{
     S.programs.push({name:'Custom',cls:'Utility',str:3,mu:1});
     S.selectedProg=S.programs.length-1;
@@ -80,36 +89,8 @@
     const res = await window.netrunAPI.applyUpdate();
     if(res.canceled){ log('Update canceled.','sys'); return; }
     if(!res.ok){ log('Update failed: '+(res.error||'?'),'bad'); return; }
-    log('Offline patch installed: v'+res.version+' (was packaged '+res.previous+'). Restarting…','ok');
+    log('Update installed: v'+res.version+' (was packaged '+res.previous+'). Restarting…','ok');
     setTimeout(()=>window.netrunAPI.relaunch(), 600);
-  });
-
-  document.getElementById('btn-gh-update') && (document.getElementById('btn-gh-update').onclick=async()=>{
-    if(!window.netrunAPI||!window.netrunAPI.githubCheck){
-      log('GitHub update API unavailable.','bad');
-      return;
-    }
-    log('Checking GitHub Releases…','sys');
-    const res = await window.netrunAPI.githubCheck();
-    if(!res.ok){
-      log('GitHub check failed: '+(res.error||'?'),'bad');
-      return;
-    }
-    const st = res.status || await window.netrunAPI.githubStatus();
-    if(st.status==='available'){
-      log(`Update available: v${st.version||'?'}. Downloading…`,'ok');
-      const dl = await window.netrunAPI.githubDownload();
-      if(!dl.ok){ log('Download failed: '+(dl.error||'?'),'bad'); return; }
-      log('Download complete. Installing & restarting…','ok');
-      setTimeout(()=>window.netrunAPI.githubInstall(), 800);
-    } else if(st.status==='uptodate'){
-      log('Already up to date (GitHub).','ok');
-    } else if(st.status==='downloaded'){
-      log(st.message||'Update ready. Installing…','ok');
-      setTimeout(()=>window.netrunAPI.githubInstall(), 400);
-    } else {
-      log('GitHub status: '+(st.message||st.status||'unknown'),'sys');
-    }
   });
 
   document.getElementById('btn-rot-reset') && (document.getElementById('btn-rot-reset').onclick=()=>{
@@ -117,7 +98,23 @@
   });
 
   // Boot
+  drawDossierPhoto();
+  if(typeof setupDossierPhotoUpload==='function') setupDossierPhotoUpload();
+  syncDossierHandle();
+  document.getElementById('nr-name')?.addEventListener('input', syncDossierHandle);
+  document.getElementById('citygrid-close') && (document.getElementById('citygrid-close').onclick=closeCityGrid);
+  document.getElementById('citygrid-enter') && (document.getElementById('citygrid-enter').onclick=()=>{
+    closeCityGrid();
+    if(typeof loadFort==='function') loadFort(SAMPLE_FORT);
+    log('Sample fort loaded in local city context.','ok');
+  });
   defaultPrograms();
+  if(typeof setupBootUI==='function') setupBootUI();
+  else if(typeof hideBootScreen==='function') hideBootScreen();
+  setupIdleNet();
+  setupCommandLine();
+  aiMsg('SYS','Uplink established. Local grid stable.');
+
   fillPresetSelect();
   bootPhaser();
   updateLocHud();
@@ -125,10 +122,18 @@
 
   if(!S.seed) setSeed(Date.now()>>>0);
   loadSession();
+  // best-effort fullscreen (works even via offline patch; F11 also via main when rebuilt)
+  try{
+    const el=document.documentElement;
+    if(el && el.requestFullscreen && !document.fullscreenElement){
+      setTimeout(()=>{ el.requestFullscreen().catch(()=>{}); }, 400);
+    }
+  }catch(_e){}
+
   setInterval(saveSession, 15000);
 
-  log('Netrun Terminal ISO 1.6.6 online.','ok');
+  log('Netrun Terminal ISO 1.6.16 online.','ok');
   log('CP2020 RAW: 5 spaces + 1 Menu action per net-turn.','info');
-  log('Modules: data · core · fort · combat · demons · netmap · ui · scene','sys');
-  log('F3 debug · F4 CRT · seed='+S.seed,'sys');
+  log('Modules: data · core · fort · combat · demons · saves · netmap · ui · scene','sys');
+  log('F3 debug · seed='+S.seed,'sys');
 })();
