@@ -76,11 +76,48 @@ function scanLocalReport(prog){
   return bits;
 }
 
+/** CP2020 Intrusion damage vs Data Wall after successful attack roll. */
+function intrusionWallDamage(prog){
+  const n = (prog && prog.name) ? String(prog.name) : '';
+  if(/^Hammer$/i.test(n)) return d6()+d6();                 // 2D6
+  if(/Jackhammer/i.test(n)) return d6();                    // 1D6
+  if(/Pile\s*Driver/i.test(n)) return d6()+d6()+d6()+d6();  // 4D6
+  if(/Sledgehammer/i.test(n)) return d6()+d6()+d6();        // 3D6
+  if(/Ramming\s*Piston/i.test(n)) return d6()+d6()+d6()+d6()+d6(); // 5D6
+  if(/Termite/i.test(n)) return d6();                       // 1D6
+  // Parse "ND6" from program note when present
+  const note = (prog && prog.note) ? String(prog.note) : '';
+  const m = note.match(/(\d)\s*D\s*6/i);
+  if(m){
+    let t=0, k=+m[1]|0;
+    for(let i=0;i<k;i++) t+=d6();
+    return Math.max(1, t);
+  }
+  return d6();
+}
+
+/** Restore cls/str/mu/note from PROGRAM_DB when saves/imports stripped fields. */
+function hydrateProgram(p){
+  if(!p || !p.name) return p;
+  const db = (typeof PROGRAM_DB!=='undefined' && PROGRAM_DB) ? PROGRAM_DB : (window.PROGRAM_DB||[]);
+  const src = db.find(x=>x && x.name===p.name);
+  if(!src) return p;
+  // Always restore rules text; keep runtime mutations (str chips, slots) intact
+  if(src.cls) p.cls = src.cls;
+  if(src.note) p.note = src.note;
+  if(p.str==null && src.str!=null) p.str = src.str;
+  if(p.mu==null && src.mu!=null) p.mu = src.mu;
+  if(p.cost==null && src.cost!=null) p.cost = src.cost;
+  return p;
+}
+
 function runSelectedProgram(){
   if(!S.fort) return;
   if(!spendAction()) return;
   let prog=S.programs[S.selectedProg];
   if(!prog){log('No program selected.','bad');return}
+  prog = hydrateProgram(prog);
+  S.programs[S.selectedProg] = prog;
   // CP2020: Demon shell deploys as autonomous agent — plot route first
   if(typeof isDemon==='function' && isDemon(prog)){
     // refund menu action; planning is free, confirm spends later if desired
@@ -117,7 +154,7 @@ function runSelectedProgram(){
     const t=walls[0]; const atk=netAttackRoll(prog.str); const def=netDefendRoll(t.c.str,true);
     log(`  Wall (${t.x},${t.y}): ${atk.detail} vs ${def.detail}`,'sys');
     if(atk.total>def.total){
-      const dmg=prog.name==='Hammer'?(d6()+d6()):(prog.name==='Pile Driver'?(d6()+d6()+d6()+d6()):(prog.name==='Sledgehammer'?(d6()+d6()+d6()):d6()));
+      const dmg = intrusionWallDamage(prog);
       const k=key(t.x,t.y); const ns=Math.max(0,(S.wallStr[k]??t.c.str)-dmg);
       S.wallStr[k]=ns; log(`  HIT · −${dmg} STR → ${ns}`,'ok');
       if(/hammer|pile driver|ramming|sledge/i.test(prog.name)){bumpAlarm(1); log('  Loud intrusion — ALARM +1','bad'); progSpeak(prog,'That was loud. Alarm spike.');}
@@ -428,6 +465,70 @@ function forceJackout(reason){
 function isDumpProgram(name){
   return /jack.?attack|jackattack|dump|log.?off|kick|boot.*out/i.test(name||'');
 }
+/** Screen-space pain feedback: red flash + shake + CRT glitch by severity. */
+function screenDamageFx(amount, kind){
+  const dmg = Math.max(0, amount|0);
+  // intensity tiers: light 1-3 · medium 4-7 · heavy 8+
+  let tier = 'light';
+  if(dmg >= 8 || kind==='int' && dmg>=3) tier = 'heavy';
+  else if(dmg >= 4 || kind==='int') tier = 'medium';
+  const shell = document.getElementById('shell') || document.body;
+  const glitch = document.getElementById('crt-glitch');
+  const fx = document.getElementById('fx-layer');
+  // red flash overlay
+  let flash = document.getElementById('dmg-flash');
+  if(!flash){
+    flash = document.createElement('div');
+    flash.id = 'dmg-flash';
+    flash.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:1200;opacity:0;background:radial-gradient(ellipse at center,rgba(255,40,60,.55)0%,rgba(120,0,20,.25)55%,transparent 75%);transition:opacity .08s linear';
+    document.body.appendChild(flash);
+  }
+  const opacity = tier==='heavy' ? 0.85 : (tier==='medium' ? 0.55 : 0.32);
+  flash.style.opacity = String(opacity);
+  // shake
+  const shakeClass = tier==='heavy' ? 'dmg-shake-heavy' : (tier==='medium' ? 'dmg-shake-med' : 'dmg-shake-light');
+  shell.classList.remove('dmg-shake-light','dmg-shake-med','dmg-shake-heavy');
+  void shell.offsetWidth;
+  shell.classList.add(shakeClass);
+  // CRT glitch pulse
+  if(glitch){
+    const gOp = tier==='heavy' ? 0.55 : (tier==='medium' ? 0.32 : 0.15);
+    glitch.style.transition = 'opacity .05s linear';
+    glitch.style.opacity = String(gOp);
+    if(tier==='heavy'){
+      glitch.style.animation = 'dmg-glitch-skew .35s steps(2) 2';
+    } else if(tier==='medium'){
+      glitch.style.animation = 'dmg-glitch-skew .28s steps(2) 1';
+    } else {
+      glitch.style.animation = 'none';
+    }
+  }
+  // sparks
+  if(typeof spawnCssSparks==='function'){
+    spawnCssSparks(tier==='heavy'?18:(tier==='medium'?10:5), '#ff3355');
+  } else if(fx){
+    for(let i=0;i<(tier==='heavy'?12:6);i++){
+      const s=document.createElement('div');
+      s.className='fx-spark';
+      s.style.background='#ff3355';
+      s.style.boxShadow='0 0 10px #ff3355';
+      s.style.left=(15+Math.random()*70)+'%';
+      s.style.top=(20+Math.random()*60)+'%';
+      fx.appendChild(s);
+      setTimeout(()=>s.remove(), 650);
+    }
+  }
+  const clearMs = tier==='heavy' ? 520 : (tier==='medium' ? 380 : 260);
+  setTimeout(()=>{
+    flash.style.opacity = '0';
+    shell.classList.remove('dmg-shake-light','dmg-shake-med','dmg-shake-heavy');
+    if(glitch){
+      glitch.style.opacity = '0';
+      glitch.style.animation = 'none';
+    }
+  }, clearMs);
+}
+
 function applyDamage(amount, kind){
   if(S.buffs.shield>0){ S.buffs.shield--; log('  Shield absorbs the hit!','ok'); updateRunnerBars(); return; }
   let dmg=Math.max(0, amount|0);
@@ -461,7 +562,9 @@ function applyDamage(amount, kind){
       }
     }
   }
-  updateRunnerBars(); flashFx(S.runner.x,S.runner.y,0xff3355);
+  updateRunnerBars();
+  flashFx(S.runner.x,S.runner.y,0xff3355);
+  if(dmg>0) screenDamageFx(dmg, kind||'wound');
 }
 
 function iceCounterApplyAntiPerson(t, name, mitigated){

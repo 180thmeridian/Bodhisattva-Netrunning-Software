@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>CP2020 NETRUN // ISO 1.6.46</title>
+<title>CP2020 NETRUN // ISO 1.6.47</title>
 <script src="phaser.min.js"></script>
 <style>
 :root {
@@ -811,6 +811,16 @@ button.red-exit:hover{ border-color:var(--r); box-shadow:0 0 8px rgba(255,51,85,
   75%{ transform:translateX(6px); }
 }
 
+
+/* damage feedback */
+@keyframes dmg-shake-l { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-2px,1px)} 75%{transform:translate(2px,-1px)} }
+@keyframes dmg-shake-m { 0%,100%{transform:translate(0,0)} 20%{transform:translate(-4px,2px)} 40%{transform:translate(3px,-3px)} 60%{transform:translate(-3px,1px)} 80%{transform:translate(4px,2px)} }
+@keyframes dmg-shake-h { 0%,100%{transform:translate(0,0)} 10%{transform:translate(-6px,3px)} 30%{transform:translate(7px,-4px)} 50%{transform:translate(-5px,5px)} 70%{transform:translate(6px,-2px)} 90%{transform:translate(-4px,3px)} }
+@keyframes dmg-glitch-skew { 0%{transform:skewX(0)} 30%{transform:skewX(-2deg) translateX(3px)} 60%{transform:skewX(2deg) translateX(-3px)} 100%{transform:skewX(0)} }
+#shell.dmg-shake-light{ animation: dmg-shake-l .22s linear }
+#shell.dmg-shake-med{ animation: dmg-shake-m .32s linear }
+#shell.dmg-shake-heavy{ animation: dmg-shake-h .45s linear }
+.prog .prog-note{ color:#6a9a7a; font-size:10px; margin-top:2px; line-height:1.25; max-width:210px; }
 </style>
 </head>
 <body>
@@ -923,7 +933,7 @@ button.red-exit:hover{ border-color:var(--r); box-shadow:0 0 8px rgba(255,51,85,
 
 <div id="shell">
 <header>
-  <div class="title">NETRUN TERMINAL // ISO 1.6.46</div>
+  <div class="title">NETRUN TERMINAL // ISO 1.6.47</div>
   <div class="ver">Cyberpunk 2020 · 5 spaces + 1 Menu action · STR+1d10</div>
   <div id="hdr-loc" title="LDL location">—</div>
   <div id="net-clock" title="Net-time · +1s per completed turn">2032-08-01 · 00:00:00</div>

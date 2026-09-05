@@ -236,7 +236,7 @@
 
   // Version line + quiet GitHub status paint
   (async () => {
-    let verLabel = '1.6.46';
+    let verLabel = '1.6.47';
     try{
       if(window.netrunAPI && window.netrunAPI.getVersion){
         const v = await window.netrunAPI.getVersion();

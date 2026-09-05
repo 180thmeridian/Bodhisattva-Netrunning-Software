@@ -222,6 +222,7 @@ function renderPrograms(){
   const box=document.getElementById('prog-list');
   box.innerHTML='';
   S.programs.forEach((p,i)=>{
+    if(typeof hydrateProgram==='function') hydrateProgram(p);
     ensureDemonSlots(p);
     const div=document.createElement('div');
     const cm=progClassMeta(p.cls);
@@ -230,6 +231,7 @@ function renderPrograms(){
     let meta=`${p.cls} · STR ${p.str} · MU ${p.mu}`;
     if(isDemon(p)) meta+=` · slots ${p.slots.length}/${demonSlotMax(p)}`;
     if(typeof isOneUseProgram==='function' && isOneUseProgram(p)) meta+=' · ONE-USE';
+    if(p.note){ const sn=String(p.note).slice(0,72); meta+=`<div class="prog-note">${sn}${String(p.note).length>72?'…':''}</div>`; }
     let slotHtml='';
     if(isDemon(p)){
       ensureDemonSlots(p);
