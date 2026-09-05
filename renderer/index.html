@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CP2020 NETRUN // ISO 1.6.6</title>
+<script src="phaser.min.js"></script>
+<style>
+:root {
+  --bg:#020503; --panel:#060e09; --border:#1a3a24;
+  --g:#33ff66; --gd:#1a8033; --a:#ffaa33; --c:#33ccff; --r:#ff3355;
+  --w:#d8e8d8; --m:#5a7a5a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--w);
+  font-family:"Courier New",Courier,monospace;font-size:12px;overflow:hidden}
+#shell{display:grid;grid-template-columns:290px 1fr 310px;grid-template-rows:40px 1fr 30px;height:100vh}
+header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#0c1a12,#050a07)}
+header .title{color:var(--g);letter-spacing:2px;font-weight:bold;
+  text-shadow:0 0 10px rgba(51,255,102,.45)}
+header .ver{color:var(--m);font-size:11px}
+header .btns{display:flex;gap:6px}
+button{font-family:inherit;font-size:11px;background:#0a1a10;color:var(--g);
+  border:1px solid var(--border);padding:5px 11px;cursor:pointer;text-transform:uppercase}
+button:hover{border-color:var(--g);box-shadow:0 0 8px rgba(51,255,102,.3)}
+button:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+button.amber{color:var(--a);border-color:#4a3010}
+button.cyan{color:var(--c);border-color:#104050}
+button.red{color:var(--r);border-color:#401018}
+.panel{background:var(--panel);border-right:1px solid var(--border);overflow:auto;padding:10px 12px;z-index:2}
+.panel.right{border-right:none;border-left:1px solid var(--border)}
+.panel h3{color:var(--c);font-size:11px;letter-spacing:1px;border-bottom:1px solid var(--border);
+  padding-bottom:4px;margin:12px 0 6px}
+.panel h3:first-child{margin-top:0}
+.stat-row{display:flex;justify-content:space-between;align-items:center;margin:3px 0;color:var(--m)}
+.stat-row b{color:var(--g);font-weight:normal}
+.stat-row input,.stat-row select{width:56px;background:#050a07;border:1px solid var(--border);
+  color:var(--g);font-family:inherit;font-size:11px;padding:2px 4px}
+.stat-row input.wide{width:110px}
+#game-wrap{position:relative;background:#010402;overflow:hidden}
+#hud-top{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none;
+  background:rgba(3,10,6,.82);border:1px solid var(--border);padding:5px 16px;color:var(--a);
+  letter-spacing:1px;text-shadow:0 0 6px rgba(255,170,51,.35);white-space:nowrap}
+#prog-list{max-height:240px;overflow:auto}
+.prog{display:grid;grid-template-columns:1fr auto auto auto;gap:4px;align-items:center;
+  border:1px solid var(--border);padding:5px 7px;margin-bottom:4px;background:#050c08;cursor:pointer}
+.prog.sel{border-color:var(--c);box-shadow:0 0 8px rgba(51,204,255,.25)}
+.prog .name{color:var(--w)}
+.prog .meta{color:var(--m);font-size:10px}
+.prog button{padding:2px 6px;font-size:10px}
+#log{height:200px;overflow-y:auto;background:#030805;border:1px solid var(--border);padding:6px;line-height:1.4}
+#log .turn{color:var(--a)} #log .ok{color:var(--g)} #log .bad{color:var(--r)}
+#log .info{color:var(--c)} #log .sys{color:var(--m)}
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
+.menu-grid button{width:100%;padding:7px 4px}
+footer{grid-column:1/-1;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px;
+  padding:0 12px;color:var(--m);font-size:11px;background:#050a07}
+footer kbd{border:1px solid var(--border);padding:0 4px;color:var(--gd)}
+#crt-scan,#crt-vignette,#crt-noise,#crt-glitch{position:fixed;inset:0;pointer-events:none;z-index:1000}
+#crt-scan{background:repeating-linear-gradient(0deg,rgba(0,0,0,.26)0px,rgba(0,0,0,.26)1px,transparent 1px,transparent 3px);
+  animation:sf .12s infinite alternate}
+@keyframes sf{from{opacity:.88}to{opacity:1}}
+#crt-vignette{background:radial-gradient(ellipse at center,transparent 42%,rgba(0,0,0,.58)100%)}
+#crt-noise{opacity:.045;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:ns .28s steps(4) infinite}
+@keyframes ns{0%{background-position:0 0}25%{background-position:-18px 12px}50%{background-position:14px -22px}100%{background-position:0 0}}
+#crt-glitch{opacity:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 2px,rgba(255,51,85,.04)2px,rgba(255,51,85,.04)4px,transparent 4px,transparent 6px,rgba(51,204,255,.04)6px,rgba(51,204,255,.04)8px);
+  animation:gp 7.2s infinite}
+@keyframes gp{0%,92%,100%{opacity:0}93%{opacity:.55;transform:translateX(2px)}94%{opacity:.28;transform:translateX(-2px)}95%{opacity:0}}
+#drop-hint{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(2,8,5,.88);z-index:20;color:var(--c);font-size:15px;letter-spacing:2px;border:2px dashed var(--c)}
+#drop-hint.show{display:flex}
+#init-box{margin-top:8px;padding:6px;border:1px solid var(--border);background:#040a07;font-size:11px;color:var(--m)}
+#init-box b{color:var(--g)}
+
+#netmap-overlay{position:absolute;inset:0;z-index:15;display:none;background:rgba(1,4,3,.97);overflow:hidden;
+  flex-direction:column;padding:0}
+#netmap-overlay.open{display:flex}
+#netmap-top{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#0c1a12,#050a07);flex-shrink:0}
+#netmap-top h2{color:var(--c);letter-spacing:2px;font-size:13px;margin:0}
+#netmap-top .hint{color:var(--m);font-size:10px;flex:1}
+#netmap-status{color:var(--a);font-size:11px;padding:6px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+#netmap-body{flex:1;display:grid;grid-template-columns:1fr 200px;min-height:0}
+#netmap-canvas-wrap{position:relative;overflow:hidden;background:#020806}
+#netmap-canvas{display:block;width:100%;height:100%}
+#netmap-side{border-left:1px solid var(--border);overflow:auto;padding:8px;background:#040a07}
+#netmap-side h4{color:var(--c);font-size:10px;letter-spacing:1px;margin:8px 0 4px}
+.ldl-card{border:1px solid var(--border);padding:6px 8px;background:#050c08;cursor:pointer;margin-bottom:4px;font-size:10px}
+.ldl-card:hover{border-color:var(--g)}
+.ldl-card.here{border-color:var(--c);box-shadow:0 0 8px rgba(51,204,255,.2)}
+.ldl-card .city{color:var(--g);font-weight:bold}
+.ldl-card .meta{color:var(--m);font-size:9px;margin-top:2px}
+#netmap-legend{font-size:9px;color:var(--m);line-height:1.5;padding:6px 0}
+#netmap-legend span{display:inline-block;width:8px;height:8px;margin-right:4px;vertical-align:middle}
+
+#net-clock{color:var(--a);font-size:12px;letter-spacing:1px;text-shadow:0 0 8px rgba(255,170,51,.35);
+  border:1px solid var(--border);padding:3px 10px;background:rgba(5,12,8,.7)}
+#map-tools{position:absolute;top:10px;right:10px;z-index:6;display:flex;gap:4px}
+#map-tools button{width:32px;height:28px;padding:0;font-size:14px;line-height:1}
+#fx-layer{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+.fx-spark{position:absolute;width:4px;height:4px;border-radius:50%;background:#33ff66;
+  box-shadow:0 0 8px #33ff66;animation:spark 0.7s ease-out forwards}
+@keyframes spark{to{opacity:0;transform:translateY(-30px) scale(0.2)}}
+#game-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;
+  background:radial-gradient(ellipse at 50% 0%,rgba(51,255,102,.04),transparent 55%);
+  mix-blend-mode:screen}
+
+#tip{
+  position:fixed; z-index:2000; max-width:280px; pointer-events:none;
+  background:linear-gradient(165deg,rgba(6,18,12,.97),rgba(3,10,7,.98));
+  border:1px solid #2a5a38; color:#d8e8d8; padding:10px 12px;
+  font-size:11px; line-height:1.45; letter-spacing:0.2px;
+  box-shadow:0 0 20px rgba(51,255,102,.18), 0 8px 24px rgba(0,0,0,.55);
+  opacity:0; transform:translateY(4px); transition:opacity .12s, transform .12s;
+}
+#tip.show{opacity:1; transform:translateY(0)}
+#tip .tip-title{color:#33ff66; font-weight:bold; letter-spacing:1px; margin-bottom:4px;
+  text-shadow:0 0 8px rgba(51,255,102,.35)}
+#tip .tip-cls{color:#33ccff; font-size:10px; margin-bottom:6px}
+#tip .tip-row{display:flex; justify-content:space-between; color:#5a7a5a; margin:2px 0}
+#tip .tip-row b{color:#ffaa33; font-weight:normal}
+#tip .tip-body{color:#a8c8a8; margin-top:6px; border-top:1px solid #1a3a24; padding-top:6px}
+#tip .tip-warn{color:#ff3355; margin-top:4px; font-size:10px}
+</style>
+</head>
+<body>
+<div id="tip" role="tooltip"></div>
+<div id="crt-scan"></div><div id="crt-vignette"></div><div id="crt-noise"></div><div id="crt-glitch"></div>
+<div id="shell">
+<header>
+  <div class="title">NETRUN TERMINAL // ISO 1.6.6</div>
+  <div class="ver">Cyberpunk 2020 · 5 spaces + 1 Menu action · STR+1d10</div>
+  <div id="net-clock" title="Net-time · +1s per completed turn">2032-08-01 · 00:00:00</div>
+  <div class="btns">
+    <button id="btn-load" class="cyan">LOAD JSON</button>
+    <button id="btn-netmap" class="cyan">NETMAP</button>
+    <button id="btn-sample" class="amber">SAMPLE FORT</button>
+    <button id="btn-end" class="red">END TURN</button>
+    <button id="btn-gh-update" class="cyan" title="Check GitHub Releases for full app update">GH UPDATE</button>
+    <button id="btn-update" class="amber" title="Install offline .zip renderer patch">OFFLINE ZIP</button>
+  </div>
+</header>
+<aside class="panel" id="left">
+  <h3>NETRUNNER</h3>
+  <div class="stat-row"><span>HANDLE</span><input id="nr-name" class="wide" value="Ghost" /></div>
+  <div class="stat-row"><span>INT</span><input id="nr-int" type="number" value="8" min="1" max="10" /></div>
+  <div class="stat-row"><span>REF</span><input id="nr-ref" type="number" value="7" min="1" max="10" /></div>
+  <div class="stat-row"><span>COOL</span><input id="nr-cool" type="number" value="6" min="1" max="10" /></div>
+  <div class="stat-row"><span>INTERFACE</span><input id="nr-iface" type="number" value="6" min="0" max="10" /></div>
+  <div class="stat-row"><span>WOUNDS</span><b id="nr-wounds">0</b></div>
+  <div class="stat-row"><span>INT DAMAGE</span><b id="nr-intdmg">0</b></div>
+  <h3>CYBERDECK</h3>
+  <div class="stat-row"><span>SPEED</span><input id="deck-spd" type="number" value="2" min="0" max="5" /></div>
+  <div class="stat-row"><span>DATA WALL</span><input id="deck-dw" type="number" value="4" min="0" max="10" /></div>
+  <div class="stat-row"><span>MEMORY (MU)</span><input id="deck-mu" type="number" value="20" min="10" max="40" /></div>
+  <div class="stat-row"><span>MU USED</span><b id="mu-used">0 / 20</b></div>
+  <div class="stat-row"><span>BUFFS</span><b id="nr-buffs">—</b></div>
+  <h3>PROGRAMS <button id="btn-add-prog" style="float:right;padding:1px 6px">+</button></h3>
+  <p style="color:var(--m);font-size:10px;margin-bottom:4px">Select Demon → <b style="color:var(--a)">→D</b> on another prog to load · ⏏ eject · R to RUN</p>
+  <div id="prog-list"></div>
+  <div style="margin-top:6px">
+    <select id="prog-preset" style="width:100%;background:#050a07;border:1px solid var(--border);color:var(--g);font-family:inherit;padding:4px">
+      <option value="">— add from library —</option>
+    </select>
+  </div>
+</aside>
+<div id="game-wrap">
+  <div id="hud-top">LOAD A DATAFORT TO BEGIN</div>
+  <div id="map-tools">
+    <button type="button" id="btn-rot-ccw" title="Rotate CCW">⟲</button>
+    <button type="button" id="btn-rot-cw" title="Rotate CW">⟳</button>
+    <button type="button" id="btn-rot-reset" title="Reset rotation">⌖</button>
+  </div>
+  <div id="drop-hint">DROP CYBERSMILY JSON HERE</div>
+  <div id="netmap-overlay">
+    <div id="netmap-top">
+      <h2>NETMAP // WORLD GRID</h2>
+      <div class="hint">NETSPACE 21×13 · CRT · click LDL · Δ≤ net-move</div>
+      <button class="red" id="netmap-close">CLOSE</button>
+    </div>
+    <div id="netmap-status"></div>
+    <div id="netmap-body">
+      <div id="netmap-canvas-wrap"><canvas id="netmap-canvas"></canvas></div>
+      <div id="netmap-side">
+        <div id="netmap-legend">
+          <div><span style="background:#1a3a28"></span> Pacifica</div>
+          <div><span style="background:#2a2a22"></span> Rustbelt</div>
+          <div><span style="background:#222038"></span> EuroTheatre</div>
+          <div><span style="background:#1a1010"></span> SovSpace</div>
+          <div><span style="background:#2a2818"></span> Afrikani</div>
+          <div><span style="background:#1a2830"></span> Atlantis</div>
+          <div><span style="background:#33ccff"></span> you are here</div>
+          <div><span style="background:#ffaa33"></span> in range</div>
+        </div>
+        <h4>LDL NODES</h4>
+        <div id="netmap-grid"></div>
+      </div>
+    </div>
+  </div>
+  <div id="fx-layer"></div>
+    <div id="phaser-host"></div>
+</div>
+<aside class="panel right" id="right">
+  <h3>NET STATUS</h3>
+  <div class="stat-row"><span>TURN</span><b id="st-turn">—</b></div>
+  <div class="stat-row"><span>MOVE LEFT</span><b id="st-move">5</b></div>
+  <div class="stat-row"><span>MENU ACTION</span><b id="st-act">1</b></div>
+  <div class="stat-row"><span>ALARM</span><b id="st-alarm">0</b></div>
+  <div class="stat-row"><span>TRACE Σ</span><b id="st-trace">0</b></div>
+  <div class="stat-row"><span>LOCATION</span><b id="st-loc">—</b></div>
+  <div class="stat-row"><span>FORTRESS</span><b id="st-fort">none</b></div>
+  <div class="stat-row"><span>CPU / INT</span><b id="st-cpu">—</b></div>
+  <div class="stat-row"><span>DATAWALL</span><b id="st-dw">—</b></div>
+  <div id="init-box">Initiative at combat start.<br/>Runner: <b>REF + Speed + 1d10</b><br/>System: <b>INT + 1d10</b></div>
+  <h3>MENU <span style="color:var(--m);font-weight:normal">(1 action)</span></h3>
+  <div class="menu-grid">
+    <button id="m-ldl" class="amber">LDL LINK</button>
+    <button id="m-run" class="cyan" disabled>RUN PROGRAM</button>
+    <button id="m-copy" disabled>COPY</button>
+    <button id="m-read" disabled>READ</button>
+    <button id="m-erase" class="red" disabled>ERASE</button>
+    <button id="m-jackout" class="amber">LOG OFF</button>
+    <button id="m-end" class="red">END TURN</button>
+  </div>
+  <p style="color:var(--m);font-size:10px;margin-top:6px;line-height:1.4">
+    <b style="color:var(--g)">Intrusion</b> → adjacent datawall<br/>
+    <b style="color:var(--a)">Decryption</b> → adjacent codegate<br/>
+    <b style="color:var(--r)">Anti-IC / Anti-Pers</b> → adjacent ICE<br/>
+    Closed gates &amp; ICE block movement
+  </p>
+  <h3>NET LOG</h3>
+  <div id="log"></div>
+</aside>
+<footer>
+  <span><kbd>WASD</kbd>/<kbd>↑↓←→</kbd> move</span>
+  <span><kbd>R</kbd> run program</span>
+  <span><kbd>T</kbd> end turn</span>
+  <span><kbd>L</kbd> load</span>
+  <span><kbd>F3</kbd> debug</span>
+  <span><kbd>F4</kbd> CRT</span>
+  <span>wheel zoom · RMB pan</span>
+  <span style="margin-left:auto;color:var(--gd)">v1.6.5 · modular</span>
+</footer>
+</div>
+<script src="data.js"></script>
+<script src="core.js"></script>
+<script src="demons.js"></script>
+<script src="fort.js"></script>
+<script src="combat.js"></script>
+<script src="netmap.js"></script>
+<script src="netmap-ui.js"></script>
+<script src="ui.js"></script>
+<script src="scene.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+{
+  "name": "DEMO // Arasaka Subgrid-7",
+  "notes": "Sample datafort for Netrun Terminal beta. Compatible with Cybersmily DF Designer JSON.",
+  "rows": 12,
+  "columns": 14,
+  "cost": 48500,
+  "additionalCosts": 0,
+  "cpu": 2,
+  "cpuNodes": [{ "x": 6, "y": 5 }, { "x": 7, "y": 5 }],
+  "mu": [{ "key": "Database", "value": 8 }, { "key": "VR Lounge", "value": 4 }],
+  "muNodes": [{ "x": 4, "y": 4 }, { "x": 9, "y": 4 }, { "x": 4, "y": 7 }, { "x": 9, "y": 7 }],
+  "muAvailable": 80,
+  "muUsed": 12,
+  "int": 6,
+  "ai": { "personality": "Machine-like", "reaction": "Report", "icon": "Geometric" },
+  "datawallStr": 5,
+  "datawallNodes": [
+    {"x":2,"y":2},{"x":3,"y":2},{"x":4,"y":2},{"x":5,"y":2},{"x":6,"y":2},{"x":7,"y":2},{"x":8,"y":2},{"x":9,"y":2},{"x":10,"y":2},{"x":11,"y":2},
+    {"x":2,"y":9},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":7,"y":9},{"x":8,"y":9},{"x":9,"y":9},{"x":10,"y":9},{"x":11,"y":9},
+    {"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":2,"y":8},
+    {"x":11,"y":3},{"x":11,"y":4},{"x":11,"y":5},{"x":11,"y":6},{"x":11,"y":7},{"x":11,"y":8}
+  ],
+  "codegates": [
+    { "str": 3, "coord": { "x": 6, "y": 2 } },
+    { "str": 4, "coord": { "x": 11, "y": 5 } }
+  ],
+  "files": [
+    { "key": "Payroll Q3", "value": 2 },
+    { "key": "Black Project", "value": 4 },
+    { "key": "Personnel", "value": 1 }
+  ],
+  "remotes": [
+    { "name": "Lobby Cam", "type": 8, "coord": { "x": 3, "y": 3 } },
+    { "name": "Door-A", "type": 14, "coord": { "x": 5, "y": 3 } },
+    { "name": "Term-Sysop", "type": 6, "coord": { "x": 8, "y": 6 } },
+    { "name": "Alarm Hub", "type": 13, "coord": { "x": 10, "y": 8 } }
+  ],
+  "skills": [
+    { "key": "Accounting", "value": 6 },
+    { "key": "System Knowledge", "value": 8 },
+    { "key": "Interface", "value": 5 }
+  ],
+  "defenses": [
+    { "name": "Watchdog", "coord": { "x": 5, "y": 5 }, "program": { "name": "Watchdog", "strength": 4, "mu": 5 } },
+    { "name": "Hellhound", "coord": { "x": 8, "y": 5 }, "program": { "name": "Hellhound", "strength": 6, "mu": 6 } },
+    { "name": "Killer IV", "coord": { "x": 6, "y": 8 }, "program": { "name": "Killer", "strength": 5, "mu": 5 } }
+  ]
+}
