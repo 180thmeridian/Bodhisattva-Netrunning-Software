@@ -144,7 +144,17 @@ function updateRunnerBars(){
   }
 
   const iEl=document.getElementById('nr-intdmg');
-  if(iEl){ iEl.textContent=S.intDmg; iEl.style.color=S.intDmg>0?'var(--r)':'var(--g)'; }
+  if(iEl){
+    const curInt = (typeof nr==='function' ? nr().int : 5)|0;
+    iEl.textContent = (S.intDmg|0) > 0 ? (S.intDmg+' (−INT→'+curInt+')') : '0';
+    iEl.style.color = (curInt<=0 || (S.intDmg|0)>0) ? 'var(--r)' : 'var(--g)';
+  }
+  // live INT readout
+  const intRo=document.getElementById('nr-int-ro');
+  if(intRo && typeof nr==='function'){
+    intRo.textContent = String(nr().int);
+    intRo.style.color = nr().int<=2 ? 'var(--r)' : '';
+  }
   const b=[];
   if(S.buffs.shield) b.push('Shield×'+S.buffs.shield);
   if(S.buffs.armor) b.push('Armor×'+S.buffs.armor);
@@ -154,6 +164,7 @@ function updateRunnerBars(){
   const bf=document.getElementById('nr-buffs');
   if(bf) bf.textContent=b.length?b.join(', '):'—';
   if(typeof updateNeuralMap==='function') updateNeuralMap();
+  if(typeof updateIntTraumaFx==='function') updateIntTraumaFx();
 }
 
 /** Visual feedback for body wounds + INT trauma on the neural schematic. */

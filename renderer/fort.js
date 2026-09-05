@@ -258,14 +258,14 @@ function updateHUD(){
     document.getElementById('st-cpu').textContent=`${S.fort.cpu} / INT ${S.fort.int}`;
     document.getElementById('st-dw').textContent=`STR ${S.fort.datawallStr}`;
   }
-  const can=S.actionLeft>0&&!!S.fort&&!S.stunned&&!S.flatlined&&S.wounds<17&&S.intDmg<nr().int;
+  const can=S.actionLeft>0&&!!S.fort&&!S.stunned&&!S.flatlined&&S.wounds<17&&(nr().int>0&&S.intDmg<nr().int);
   ['m-run','m-copy','m-read','m-erase'].forEach(id=>document.getElementById(id).disabled=!can);
 }
 function spendAction(){
   if(S.flatlined){log('FLATLINED — no actions.','bad');return false}
   if(S.stunned){log('Stunned — no Menu action.','bad');return false}
   if(S.actionLeft<=0){log('No Menu action left this turn.','bad');return false}
-  if(S.wounds>=17||S.intDmg>=nr().int){log('You are incapacitated.','bad');return false}
+  if(S.wounds>=17||(nr().int<=0||S.intDmg>=nr().int)){log('You are incapacitated.','bad');return false}
   S.actionLeft=0; updateHUD(); return true;
 }
 

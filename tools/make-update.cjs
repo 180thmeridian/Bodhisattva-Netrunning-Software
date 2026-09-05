@@ -23,7 +23,7 @@ const manifest = {
   version: ver,
   minVersion: '1.6.0',
   created: new Date().toISOString(),
-  notes: '1.6.47: program descriptions + intrusion damage fix + damage screen FX'
+  notes: '1.6.50: INT trauma CRT/noise/palette; INT stat death; Liche scars; AP fix; faster anim'
 };
 fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify(manifest, null, 2));
 fs.writeFileSync(path.join(stage, 'version.txt'), ver + '\n');

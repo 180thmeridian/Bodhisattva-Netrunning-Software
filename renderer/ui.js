@@ -180,7 +180,7 @@ function rotateMap(dir){
     targets:root,
     angle:targetAngle,
     alpha:0.35,
-    duration:400,
+    duration:260,
     ease:'Cubic.easeInOut',
     onComplete:()=>{
       root.angle=0;
@@ -260,11 +260,97 @@ function refreshDebug(){
 }
 setInterval(()=>{ if(S.debug) refreshDebug(); }, 400);
 
+
+/* ========== INT trauma → CRT / noise / palette ========== */
+const INT_THEMES = ['', 'theme-invert', 'theme-amber', 'theme-ice', 'theme-blood', 'theme-violet', 'theme-toxic'];
+
+function intTraumaTier(){
+  const d = (S.intDmg|0);
+  if(d<=0) return 0;
+  if(d<=2) return 1;
+  if(d<=4) return 2;
+  if(d<=7) return 3;
+  return 4;
+}
+
+function clearIntTraumaClasses(){
+  const b=document.body;
+  if(!b) return;
+  b.classList.remove('int-trauma-1','int-trauma-2','int-trauma-3','int-trauma-4');
+  const root=document.documentElement;
+  INT_THEMES.forEach(t=>{ if(t) root.classList.remove(t); });
+}
+
+/** Apply persistent CRT intensity from cumulative INT loss. */
+function updateIntTraumaFx(){
+  const tier = intTraumaTier();
+  const b=document.body;
+  if(!b) return;
+  b.classList.remove('int-trauma-1','int-trauma-2','int-trauma-3','int-trauma-4');
+  if(tier>=1) b.classList.add('int-trauma-'+tier);
+
+  // baseline layer opacities (CSS classes handle most; nudge nodes too)
+  const noise=document.getElementById('crt-noise');
+  const glitch=document.getElementById('crt-glitch');
+  const scan=document.getElementById('crt-scan');
+  if(noise){
+    const base = [0.045, 0.08, 0.14, 0.22, 0.32][tier] ?? 0.045;
+    noise.style.opacity = String(base);
+  }
+  if(glitch && tier>=2){
+    glitch.style.opacity = String([0,0,0.12,0.22,0.35][tier]);
+  } else if(glitch && tier<2){
+    // leave pulse FX free to override; only clear sticky if no pulse
+    if(!glitch.style.animation || glitch.style.animation==='none'){
+      glitch.style.opacity = '0';
+    }
+  }
+  if(scan){
+    scan.style.opacity = tier>=2 ? '1' : '';
+  }
+
+  // re-apply locked theme if any
+  if(S.intTheme){
+    const root=document.documentElement;
+    INT_THEMES.forEach(t=>{ if(t) root.classList.remove(t); });
+    if(S.intTheme) root.classList.add(S.intTheme);
+  }
+}
+
+/**
+ * On INT hit: 25% chance to swap UI palette (invert / alt phosphor).
+ * Sticky for the session; mild chance to stick on profile.licheScar.theme
+ */
+function maybeIntThemeShift(force){
+  if(!force && Math.random()>=0.25) return false;
+  const options = INT_THEMES.filter(Boolean);
+  // avoid picking same twice in a row when possible
+  let pick = options[Math.floor(Math.random()*options.length)];
+  if(options.length>1 && pick===S.intTheme){
+    pick = options[(options.indexOf(pick)+1+Math.floor(Math.random()*(options.length-1)))%options.length];
+  }
+  S.intTheme = pick;
+  const root=document.documentElement;
+  INT_THEMES.forEach(t=>{ if(t) root.classList.remove(t); });
+  root.classList.add(pick);
+  if(typeof log==='function') log('  Sensory palette shift — '+pick.replace('theme-','')+'.','bad');
+  if(S.profile && Math.random()<0.4){
+    S.profile.licheScar = S.profile.licheScar || {};
+    S.profile.licheScar.theme = pick;
+    if(typeof persistActiveProfile==='function') persistActiveProfile();
+  }
+  return true;
+}
+
+window.updateIntTraumaFx = updateIntTraumaFx;
+window.maybeIntThemeShift = maybeIntThemeShift;
+window.intTraumaTier = intTraumaTier;
+
 /* ========== CRT toggle (F4) ========== */
 function toggleCrt(){
   // CRT locked ON — keyboard toggle removed
   S.crtEnabled=true;
-  ['crt-scan','crt-vignette','crt-noise','crt-glitch'].forEach(id=>{
+  ['crt-scan','crt-vignette','crt-noise','crt-glitch','crt-roll','crt-rgb','crt-glow'].forEach(id=>{
     const n=document.getElementById(id);
     if(n) n.style.display='';
   });

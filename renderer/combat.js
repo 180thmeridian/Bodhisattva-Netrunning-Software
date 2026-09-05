@@ -6,7 +6,7 @@ function tryMove(dx,dy){
   const tr=screenDirToLogical(dx,dy); dx=tr.dx; dy=tr.dy;
   if(S.flatlined){log('FLATLINED — no signal.','bad');return}
   if(S.stunned){log('Stunned — make recovery save next turn.','bad');return}
-  if(S.wounds>=17||S.intDmg>=nr().int){log('Incapacitated.','bad');return}
+  if(S.wounds>=17||(S.intDmg>=nr().int||nr().int<=0)){log('Incapacitated.','bad');return}
   if(S.moveLeft<=0){log('No movement left (max 5 spaces/turn).','bad');return}
   const ox=S.runner.x, oy=S.runner.y;
   const nx=S.runner.x+dx, ny=S.runner.y+dy;
@@ -36,7 +36,7 @@ function tryMove(dx,dy){
       S.scene.tweens.add({
         targets:S.scene.runnerGfx,
         x:newIso.sx, y:newIso.sy-12,
-        duration:200,
+        duration:120,
         ease:'Cubic.easeOut',
         onUpdate:()=>{
           if(!S.camFree && S.scene.runnerGfx){
@@ -555,14 +555,61 @@ function screenDamageFx(amount, kind){
   }, clearMs);
 }
 
+
+/** Lower the runner's INT characteristic (profile + DOM). Returns new INT. */
+function reduceRunnerInt(amount){
+  const dmg = Math.max(0, amount|0);
+  if(dmg<=0) return (typeof nr==='function' ? nr().int : 5)|0;
+  let cur = 5;
+  if(S.profile && typeof S.profile.int==='number'){
+    if(S.profile.intBase==null) S.profile.intBase = S.profile.int;
+    S.profile.int = (S.profile.int|0) - dmg;
+    cur = S.profile.int;
+  } else {
+    const el = document.getElementById('nr-int');
+    cur = el ? (+el.value||5) - dmg : 5 - dmg;
+  }
+  // sync DOM / readout
+  const setVal=(id,val)=>{ const el=document.getElementById(id); if(el) el.value=val; };
+  const setText=(id,val)=>{ const el=document.getElementById(id); if(el) el.textContent=String(val); };
+  setVal('nr-int', cur);
+  setText('nr-int-ro', cur);
+  if(S.profile) S.profile.int = cur;
+  // persist scar on character
+  if(S.profile){
+    S.profile.intLost = (S.profile.intLost|0) + dmg;
+  }
+  if(typeof persistActiveProfile==='function') persistActiveProfile();
+  if(typeof maybeIntThemeShift==='function') maybeIntThemeShift(false);
+  if(typeof updateIntTraumaFx==='function') updateIntTraumaFx();
+  return cur;
+}
+function killRunnerFromInt(){
+  S.flatlined = true;
+  S.stunned = true;
+  if((S.wounds|0) < 17) S.wounds = 17;
+  if(typeof log==='function') log('FLATLINE — INT destroyed. Netrunner dead.','bad');
+  if(typeof aiMsg==='function') aiMsg('SYS', 'No cortical response. Line is a corpse.');
+  if(typeof updateRunnerBars==='function') updateRunnerBars();
+  if(typeof updateHUD==='function') updateHUD();
+  if(typeof screenDamageFx==='function') screenDamageFx(12, 'int');
+}
+
 function applyDamage(amount, kind){
   if(S.buffs.shield>0){ S.buffs.shield--; log('  Shield absorbs the hit!','ok'); updateRunnerBars(); return; }
   let dmg=Math.max(0, amount|0);
   if(S.buffs.armor>0){ const before=dmg; dmg=Math.max(0,dmg-3); S.buffs.armor--; log(`  Armor softens ${before} → ${dmg}.`,'info'); }
   if(kind==='int'){
-    S.intDmg+=dmg; log(`  INT damage +${dmg} (total ${S.intDmg}/${nr().int})`,'bad');
-    if(typeof aiMsg==='function') aiMsg('DMG', `INT trauma +${dmg}`);
-    if(S.intDmg>=nr().int) log('  FOREBRAIN FRIED — Interface offline.','bad');
+    // INT damage lowers the INT characteristic itself
+    const before = (typeof nr==='function' ? nr().int : 5)|0;
+    S.intDmg = (S.intDmg|0) + dmg;
+    const after = reduceRunnerInt(dmg);
+    log(`  INT damage −${dmg}  (${before} → ${after})`,'bad');
+    if(typeof aiMsg==='function') aiMsg('DMG', `INT ${before}→${after}`);
+    if(after<=0){
+      log('  INT ≤ 0 — cortical collapse. You die in the chair.','bad');
+      killRunnerFromInt();
+    }
   } else {
     // CP2020: BTM reduces each wound hit; minimum 1 if any damage gets through
     const btm = (typeof S.btm==='number') ? S.btm : (S.profile && typeof S.profile.btm==='number' ? S.profile.btm : -2);

@@ -239,9 +239,12 @@ function deleteSlot(slot){
  * Liche memory overwrite (gamified):
  * - May trash 1–2 filled save slots into "junk" pseudo-memories
  * - Or wipe a slot entirely
- * Pseudo-personality fragments replace labels / coordinates.
+ * - Scrambles clock, turn, minor numbers, UI typos (partially sticky on profile)
  */
 function licheMemoryCorrupt(){
+  // Always run reality glitches (clock / turn / UI) even if storage blocked
+  if(typeof licheRealityGlitch==='function') licheRealityGlitch();
+
   if(!saveStorageAvailable()){
     if(typeof log==='function') log('  Liche claws at memory — no local engrams found.','info');
     return;
@@ -253,11 +256,9 @@ function licheMemoryCorrupt(){
       if(raw) filled.push(i);
     }catch(_e){}
   }
-  // always try to taint autosave too
   const targets=filled.slice();
   if(Math.random()<0.7) targets.push('auto');
   if(!targets.length){
-    // implant a junk engram into a random empty slot
     const slot=1+Math.floor(Math.random()*SAVE_SLOTS);
     const junk={
       version:SAVE_VERSION,
@@ -275,7 +276,6 @@ function licheMemoryCorrupt(){
     }catch(_e){}
     return;
   }
-  // corrupt up to 2 targets
   const n=Math.min(targets.length, 1+(Math.random()<0.45?1:0));
   for(let k=0;k<n;k++){
     const idx=Math.floor(Math.random()*targets.length);
@@ -294,13 +294,11 @@ function licheMemoryCorrupt(){
         if(typeof log==='function') log('  Liche rewrites autosave engram.','bad');
       }catch(_e){}
     } else if(Math.random()<0.35){
-      // full erase
       try{
         localStorage.removeItem(SAVE_PREFIX+t);
         if(typeof log==='function') log('  Memory slot '+t+' — ERASED by Liche.','bad');
       }catch(_e){}
     } else {
-      // replace with junk / mutated copy
       try{
         const raw=localStorage.getItem(SAVE_PREFIX+t);
         let snap;
@@ -318,7 +316,119 @@ function licheMemoryCorrupt(){
     }
   }
 }
+
+/** Scramble ephemeral UI / session values; some scars stick on the profile. */
+function licheRealityGlitch(){
+  S.liche = S.liche || { hits:0, typos:[], sticky:{} };
+  S.liche.hits = (S.liche.hits|0) + 1;
+  const notes=[];
+
+  // Clock / date skew
+  if(S.netTime && Math.random()<0.85){
+    const t=S.netTime;
+    const pick=Math.random();
+    if(pick<0.25){ t.y += (Math.random()<0.5?-1:1)*(1+Math.floor(Math.random()*3)); notes.push('year drift '+t.y); }
+    else if(pick<0.5){ t.d = Math.max(1, Math.min(28, (t.d|0) + (Math.random()<0.5?-1:1)*Math.ceil(Math.random()*7))); notes.push('date '+t.d); }
+    else if(pick<0.75){ t.h = (t.h + Math.floor(Math.random()*24)) % 24; notes.push('hour '+t.h); }
+    else { t.mi = Math.floor(Math.random()*60); t.s = Math.floor(Math.random()*60); notes.push('clock jitter'); }
+    if(typeof updateNetClock==='function') try{ updateNetClock(); }catch(_e){}
+    // sticky: remember clock is "wrong" for this character
+    if(S.profile && Math.random()<0.55){
+      S.profile.licheScar = S.profile.licheScar || {};
+      S.profile.licheScar.clockSkew = true;
+    }
+  }
+
+  // Turn number nudge (session; sometimes sticky offset)
+  if(Math.random()<0.7){
+    const delta = (Math.random()<0.5?-1:1)*(1+Math.floor(Math.random()*3));
+    S.turn = Math.max(0, (S.turn|0) + delta);
+    notes.push('turn → '+S.turn);
+    if(S.profile && Math.random()<0.4){
+      S.profile.licheScar = S.profile.licheScar || {};
+      S.profile.licheScar.turnBias = (S.profile.licheScar.turnBias|0) + delta;
+    }
+    if(typeof updateHUD==='function') updateHUD();
+  }
+
+  // Minor numeric flicker on HUD (alarm / move leftover display only)
+  if(Math.random()<0.5){
+    const before=S.alarm|0;
+    S.alarm = Math.max(0, before + (Math.random()<0.5?-1:1));
+    if(S.alarm!==before) notes.push('alarm flicker '+before+'→'+S.alarm);
+  }
+
+  // UI typo on a random labeled element (partially sticky)
+  const typoTargets = [
+    {sel:'#st-turn', attr:'text'},
+    {sel:'.panel h2, .panel .hdr, #dossier-handle', attr:'text'},
+    {sel:'#btn-end, #m-end, #m-run, #m-jackout', attr:'text'},
+    {sel:'#nr-status', attr:'text'},
+  ];
+  try{
+    const pool=[];
+    document.querySelectorAll('#st-turn, #dossier-handle, #btn-end, #m-end, #m-run, #m-jackout, #nr-status, #net-clock').forEach(el=>{
+      if(el && el.textContent && el.textContent.trim().length>=3) pool.push(el);
+    });
+    if(pool.length){
+      const el = pool[Math.floor(Math.random()*pool.length)];
+      const orig = el.dataset.licheOrig || el.textContent;
+      el.dataset.licheOrig = orig;
+      const corrupted = licheTypo(orig);
+      el.textContent = corrupted;
+      notes.push('typo «'+orig.slice(0,18)+'»→«'+corrupted.slice(0,18)+'»');
+      S.liche.typos.push({id:el.id||el.className, orig, corrupted, at:Date.now()});
+      // ~45% stick on profile (reapplied on login)
+      if(S.profile && Math.random()<0.45){
+        S.profile.licheScar = S.profile.licheScar || {typos:[]};
+        S.profile.licheScar.typos = S.profile.licheScar.typos || [];
+        S.profile.licheScar.typos.push({key: el.id || el.getAttribute('data-key') || '', sample: corrupted});
+        if(S.profile.licheScar.typos.length>6) S.profile.licheScar.typos.shift();
+      }
+    }
+  }catch(_e){}
+
+  if(notes.length && typeof log==='function'){
+    log('  Liche reality bleed: '+notes.join(' · '),'bad');
+  }
+  if(typeof persistActiveProfile==='function') persistActiveProfile();
+}
+
+function licheTypo(s){
+  const str=String(s);
+  if(str.length<2) return str+'¿';
+  const i=1+Math.floor(Math.random()*(str.length-1));
+  const modes=['swap','drop','dup','glyph'];
+  const m=modes[Math.floor(Math.random()*modes.length)];
+  if(m==='swap' && i<str.length-1) return str.slice(0,i)+str[i+1]+str[i]+str.slice(i+2);
+  if(m==='drop') return str.slice(0,i)+str.slice(i+1);
+  if(m==='dup') return str.slice(0,i)+str[i]+str.slice(i);
+  const glyphs='░█∴∙xe';
+  return str.slice(0,i)+glyphs[Math.floor(Math.random()*glyphs.length)]+str.slice(i+1);
+}
+
+/** Re-apply mild persistent Liche scars when a profile loads. */
+function applyLicheScars(p){
+  if(!p || !p.licheScar) return;
+  const sc=p.licheScar;
+  if(sc.clockSkew && S.netTime){
+    S.netTime.mi = (S.netTime.mi + 7) % 60;
+  }
+  if(sc.turnBias){
+    // only a whisper — don't ruin the run
+    S.turn = Math.max(0, (S.turn|0) + (sc.turnBias>0?1:-1));
+  }
+  if(sc.theme){
+    S.intTheme = sc.theme;
+    if(typeof updateIntTraumaFx==='function') updateIntTraumaFx();
+  }
+}
+
 window.licheMemoryCorrupt = licheMemoryCorrupt;
+window.licheRealityGlitch = licheRealityGlitch;
+window.applyLicheScars = applyLicheScars;
+
+
 
 function downloadJson(text, filename){
   const blob = new Blob([text], {type:'application/json'});

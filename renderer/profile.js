@@ -122,6 +122,7 @@ function applyProfileToUI(p){
   document.getElementById('left')?.classList.add('profile-locked');
 
   if(typeof updateRunnerBars==='function') updateRunnerBars();
+  if(typeof applyLicheScars==='function') applyLicheScars(p);
   if(typeof drawDossierPhoto==='function') drawDossierPhoto();
   if(typeof setupDossierPhotoUpload==='function') setupDossierPhotoUpload();
   if(typeof updateNeuralMap==='function') updateNeuralMap();
