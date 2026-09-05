@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build / packaging output
+dist/
+dist-update/
+build/
+*.exe
+*.AppImage
+*.dmg
+*.blockmap
+*.asar
+
+# electron-builder cache & temp
+.cache/
+out/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.log
+
+# Local session / user data (never commit)
+session.json
+*.tmp
+
+# Optional local env
+.env
+.env.local
+NETRUN_DEV
