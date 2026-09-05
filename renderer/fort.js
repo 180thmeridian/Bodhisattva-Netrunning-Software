@@ -141,11 +141,18 @@ function revealAround(cx,cy,radius){
     const dx=Math.abs(x1-x0), sx=x0<x1?1:-1;
     const dy=-Math.abs(y1-y0), sy=y0<y1?1:-1;
     let err=dx+dy;
-    // skip origin
+    // skip origin; block diagonal corner peeking between two walls
     while(!(x0===x1 && y0===y1)){
       const e2=2*err;
-      if(e2>=dy){ err+=dy; x0+=sx; }
-      if(e2<=dx){ err+=dx; y0+=sy; }
+      let stepX=false, stepY=false;
+      if(e2>=dy){ err+=dy; stepX=true; }
+      if(e2<=dx){ err+=dx; stepY=true; }
+      // closed corner: two diagonal datawalls must not leave a LOS gap
+      if(stepX && stepY){
+        if(isOpaqueTile(x0+sx, y0) && isOpaqueTile(x0, y0+sy)) break;
+      }
+      if(stepX) x0+=sx;
+      if(stepY) y0+=sy;
       if(y0<0||x0<0||y0>=R||x0>=C) break;
       S.explored.add(key(x0,y0));
       if(isOpaqueTile(x0,y0)) break; // see the obstacle, stop beyond

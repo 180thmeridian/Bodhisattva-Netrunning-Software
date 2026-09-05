@@ -20,7 +20,11 @@ function tryMove(dx,dy){
   S.runner.x=nx; S.runner.y=ny; S.moveLeft--;
   if(typeof revealAround==='function') revealAround(nx,ny);
   updateHUD();
-  if(S.scene){S.scene.drawRunner(); S.scene.centerCam(nx,ny); if(S.scene.rebuildMap) S.scene.rebuildMap();}
+  if(S.scene){
+    S.scene.drawRunner();
+    if(!S.camFree) S.scene.centerCam(nx,ny);
+    if(S.scene.rebuildMap) S.scene.rebuildMap();
+  }
   const tag=c.type!=='empty'?` [${c.label}]`:'';
   log(`→ (${nx},${ny})${tag} · move ${S.moveLeft}`,'sys');
   checkDetection();

@@ -51,10 +51,35 @@ function tipHide(){
 }
 function tipHtmlProgram(p, enemy){
   if(!p) return '';
+  // Prefer full library entry when note/stats are thin (fort ICE, copies)
+  if(typeof PROGRAM_DB!=='undefined' && Array.isArray(PROGRAM_DB)){
+    const hit=PROGRAM_DB.find(x=>String(x.name||'').toLowerCase()===String(p.name||'').toLowerCase());
+    if(hit){
+      p={
+        ...hit,
+        ...p,
+        cls:p.cls&&p.cls!=='ICE'?p.cls:hit.cls,
+        str:p.str!=null?p.str:hit.str,
+        mu:p.mu!=null&&p.mu!=='—'?p.mu:hit.mu,
+        cost:p.cost!=null?p.cost:hit.cost,
+        note:(p.note&&String(p.note).trim())?p.note:hit.note
+      };
+    }
+  }
   const cls=p.cls||p.class||'Program';
   const str=p.str!=null?p.str:(p.strength!=null?p.strength:'?');
   const mu=p.mu!=null?p.mu:'—';
-  const note=p.note||'';
+  const cost=p.cost!=null?p.cost:null;
+  const note=String(p.note||'').trim();
+  // Pull explicit damage / options lines out of note for clearer fort tooltips
+  const dmgBits=[];
+  const optBits=[];
+  const noteRest=[];
+  note.split(/[.;]/).map(s=>s.trim()).filter(Boolean).forEach(part=>{
+    if(/\b(\d+D\d+|\d+d\d+|damage|dmg|wound|INT|REF)\b/i.test(part)) dmgBits.push(part);
+    else if(/\b(turns?|silent|noisy|loud|chase|trace|invisible|disguise|variant|max |per )\b/i.test(part)) optBits.push(part);
+    else noteRest.push(part);
+  });
   let lore='';
   if(enemy){
     const key=String(p.name||'').toLowerCase();
@@ -66,11 +91,14 @@ function tipHtmlProgram(p, enemy){
     <div class="tip-cls">${enemy?'ICE · ':''}${cls}</div>
     <div class="tip-row"><span>STR</span><b>${str}</b></div>
     <div class="tip-row"><span>MU</span><b>${mu}</b></div>
-    ${note?`<div class="tip-body">${note}</div>`:''}
+    ${cost!=null?`<div class="tip-row"><span>COST</span><b>${cost} eb</b></div>`:''}
+    ${dmgBits.length?`<div class="tip-body"><b style="color:var(--r,#f66)">Effect / dmg:</b> ${dmgBits.join('; ')}</div>`:''}
+    ${optBits.length?`<div class="tip-body"><b style="color:var(--c,#6cf)">Options:</b> ${optBits.join('; ')}</div>`:''}
+    ${noteRest.length?`<div class="tip-body">${noteRest.join('. ')}</div>`:(!dmgBits.length&&!optBits.length&&note?`<div class="tip-body">${note}</div>`:'')}
     ${lore?`<div class="tip-body">${lore}</div>`:''}
     ${cls==='Demon'?`<div class="tip-warn">Demon: multi-function shell — one target for Anti-IC.</div>`:''}
     ${typeof demonTipExtra==='function'?demonTipExtra(p):''}
-    ${enemy&&/hellhound|bloodhound|pit.?bull/i.test(p.name||'')?`<div class="tip-warn">Chase-capable · Trace risk on jack-out.</div>`:''}`;
+    ${enemy&&/hellhound|bloodhound|pit.?bull|cerebus|werewolf|mastiff|fatal attractor/i.test(p.name||'')?`<div class="tip-warn">Chase-capable · Trace risk on jack-out.</div>`:''}`;
 }
 
 

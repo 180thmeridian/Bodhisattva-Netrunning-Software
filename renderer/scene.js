@@ -8,8 +8,11 @@ class NetScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.input.on('wheel',(p,o,dx,dy)=>{ this.cameras.main.zoom=Phaser.Math.Clamp(this.cameras.main.zoom-dy*0.001,0.5,2.0); });
     let drag=null;
+    if(typeof S.camFree==='undefined') S.camFree=false;
     this.input.on('pointerdown',p=>{
       if(p.middleButtonDown()||p.rightButtonDown()){
+        // free-look: unlock camera follow until re-centered
+        S.camFree=true;
         drag={x:p.x,y:p.y,cx:this.cameras.main.scrollX,cy:this.cameras.main.scrollY};
         return;
       }
@@ -128,8 +131,16 @@ class NetScene extends Phaser.Scene {
       const {sx,sy}=this.iso(x,y);
       const seen = !fogOn || S.explored.has((typeof key==='function'?key(x,y):(x+','+y)));
       if(!seen){
-        // fog of war — dark unknown tile
-        this.drawDiamond(g,sx,sy,0x030805,0x0a1810,0);
+        // fog of war — slightly oversized diamond seals seams between diagonal walls
+        g.fillStyle(0x030805,1);
+        g.lineStyle(1,0x0a1810,0.9);
+        const pad=1.5;
+        g.beginPath();
+        g.moveTo(sx, sy-TILE_H/2-pad);
+        g.lineTo(sx+TILE_W/2+pad, sy);
+        g.lineTo(sx, sy+TILE_H/2+pad);
+        g.lineTo(sx-TILE_W/2-pad, sy);
+        g.closePath(); g.fillPath(); g.strokePath();
         continue;
       }
       const fill=this.fillFor(c.type), edge=this.edgeFor(c.type);
@@ -182,7 +193,8 @@ class NetScene extends Phaser.Scene {
         this.mapRoot.add(stt);
       }
     }
-    this.drawRunner(); this.drawLotfEntity(); this.drawLotfFlies(); this.drawActiveDemons(); this.drawDemonPlan(); this.centerCam(S.runner.x,S.runner.y);
+    this.drawRunner(); this.drawLotfEntity(); this.drawLotfFlies(); this.drawActiveDemons(); this.drawDemonPlan();
+    if(!S.camFree) this.centerCam(S.runner.x,S.runner.y);
     this.setupIceHover();
   }
   drawRunner(){
@@ -198,6 +210,11 @@ class NetScene extends Phaser.Scene {
     this.tweens.add({targets:ring,scaleX:1.25,scaleY:1.25,alpha:0.15,duration:900,yoyo:true,repeat:-1});
   }
   centerCam(gx,gy){ const {sx,sy}=this.iso(gx,gy); this.cameras.main.centerOn(sx,sy); }
+  /** Re-center on runner and lock follow until next middle-button pan */
+  lockCamOnRunner(){
+    S.camFree=false;
+    if(S.runner) this.centerCam(S.runner.x,S.runner.y);
+  }
 
   setupIceHover(){
     // pointer hover over ICE / gates / walls for lore tips
@@ -218,7 +235,15 @@ class NetScene extends Phaser.Scene {
       if(!c) { tipHide(); return; }
       if(S.explored instanceof Set && typeof isExplored==='function' && !isExplored(best.x,best.y)){ tipHide(); return; }
       if(c.type==='ice'){
-        tipShow(tipHtmlProgram({name:c.name,cls:'ICE',str:c.str,mu:'—',note:''}, true), pointer.x, pointer.y);
+        // hydrate full PROGRAM_DB entry so fort ICE shows damage/options
+        let p={name:c.name,cls:'ICE',str:c.str,mu:'—',note:''};
+        if(typeof PROGRAM_DB!=='undefined' && Array.isArray(PROGRAM_DB)){
+          const hit=PROGRAM_DB.find(x=>String(x.name||'').toLowerCase()===String(c.name||'').toLowerCase()
+            || String(x.name||'').toLowerCase()===String(c.iceName||'').toLowerCase());
+          if(hit) p={...hit, str:c.str!=null?c.str:hit.str, name:c.name||hit.name};
+        }
+        if(typeof hydrateProgram==='function') p=hydrateProgram(p)||p;
+        tipShow(tipHtmlProgram(p, true), pointer.x, pointer.y);
       } else if(c.type==='gate'||c.type==='gate-open'){
         tipShow(`<div class="tip-title">${c.label}</div><div class="tip-cls">Codegate</div>
           <div class="tip-row"><span>STR</span><b>${c.str}</b></div>

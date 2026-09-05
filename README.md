@@ -1,11 +1,11 @@
-# CP2020 Netrun Terminal 1.6.47
+# CP2020 Netrun Terminal 1.6.48
 
 Offline helper for **Cyberpunk 2020** netrunning (Electron + Phaser 3).
 
 Supports:
 - Full square-cell World NetMap
 - RAW-style combat, Demons, ICE AI
-- QTE typing sequences vs Black ICE
+- QTE typing sequences vs Black ICE and LotF flies
 - Seeded RNG, F3 debug overlay, F4 CRT
 - Soft fort JSON validation (Cybersmily-compatible)
 - Session autosave (localStorage)
@@ -36,7 +36,7 @@ Run in order: **0_CHECK** → **1_INSTALL** → **2_BUILD**.
 Output:
 
 ```
-dist\CP2020-Netrun-Terminal-1.6.47-Setup.exe
+dist\CP2020-Netrun-Terminal-1.6.48-Setup.exe
 ```
 
 Also produced (needed for auto-update): `latest.yml`, `*.exe.blockmap`.

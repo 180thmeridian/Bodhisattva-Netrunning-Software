@@ -23,6 +23,13 @@
     else if(k==='d'||k==='arrowright'){ e.preventDefault(); tryMove(1,0); }
     else if(k==='r') runSelectedProgram();
     else if(k==='t') endTurn();
+    else if(k==='c'||k==='home'){
+      e.preventDefault();
+      if(S.scene && typeof S.scene.lockCamOnRunner==='function'){
+        S.scene.lockCamOnRunner();
+        if(typeof log==='function') log('Camera locked on runner (C / Home). Middle-drag to free-look.','sys');
+      }
+    }
     else if(k==='l') document.getElementById('btn-load')?.click();
     else if(e.key==='F3'){ e.preventDefault(); toggleDebug(); }
     else if(e.key==='F5'){ e.preventDefault(); if(typeof openSaveMenu==='function') openSaveMenu('save'); }
