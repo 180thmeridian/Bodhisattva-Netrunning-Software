@@ -17,6 +17,15 @@
   window.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
     const k=e.key.toLowerCase();
+    // free-look: arrows / Shift+WASD pan camera (does not move runner)
+    if(S.camFree && S.scene && S.scene.cameras){
+      const cam=S.scene.cameras.main;
+      const step=48/(cam.zoom||1);
+      if(k==='arrowup'||(e.shiftKey&&k==='w')){ e.preventDefault(); cam.scrollY-=step; return; }
+      if(k==='arrowdown'||(e.shiftKey&&k==='s')){ e.preventDefault(); cam.scrollY+=step; return; }
+      if(k==='arrowleft'||(e.shiftKey&&k==='a')){ e.preventDefault(); cam.scrollX-=step; return; }
+      if(k==='arrowright'||(e.shiftKey&&k==='d')){ e.preventDefault(); cam.scrollX+=step; return; }
+    }
     if(k==='w'||k==='arrowup'){ e.preventDefault(); tryMove(0,-1); }
     else if(k==='s'||k==='arrowdown'){ e.preventDefault(); tryMove(0,1); }
     else if(k==='a'||k==='arrowleft'){ e.preventDefault(); tryMove(-1,0); }
@@ -27,7 +36,7 @@
       e.preventDefault();
       if(S.scene && typeof S.scene.lockCamOnRunner==='function'){
         S.scene.lockCamOnRunner();
-        if(typeof log==='function') log('Camera locked on runner (C / Home). Middle-drag to free-look.','sys');
+        if(typeof log==='function') log('Camera locked on runner (C / Home). MMB/RMB-drag free-look; LMB-drag while free.','sys');
       }
     }
     else if(k==='l') document.getElementById('btn-load')?.click();

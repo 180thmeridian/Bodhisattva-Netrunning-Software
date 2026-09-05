@@ -1,12 +1,14 @@
 /* combat.js — movement, programs, damage, ICE AI */
 function tryMove(dx,dy){
   if(!S.fort) return;
+  if(S._moving) return;
   // map WASD to logical under rotation
   const tr=screenDirToLogical(dx,dy); dx=tr.dx; dy=tr.dy;
   if(S.flatlined){log('FLATLINED — no signal.','bad');return}
   if(S.stunned){log('Stunned — make recovery save next turn.','bad');return}
   if(S.wounds>=17||S.intDmg>=nr().int){log('Incapacitated.','bad');return}
   if(S.moveLeft<=0){log('No movement left (max 5 spaces/turn).','bad');return}
+  const ox=S.runner.x, oy=S.runner.y;
   const nx=S.runner.x+dx, ny=S.runner.y+dy;
   const c=cellAt(nx,ny);
   if(!c){log('Subgrid edge.','sys');return}
@@ -18,15 +20,35 @@ function tryMove(dx,dy){
     return;
   }
   S.runner.x=nx; S.runner.y=ny; S.moveLeft--;
+  // fog reveals immediately (real-time), before/during the step animation
   if(typeof revealAround==='function') revealAround(nx,ny);
   updateHUD();
-  if(S.scene){
-    S.scene.drawRunner();
-    if(!S.camFree) S.scene.centerCam(nx,ny);
-    if(S.scene.rebuildMap) S.scene.rebuildMap();
-  }
   const tag=c.type!=='empty'?` [${c.label}]`:'';
   log(`→ (${nx},${ny})${tag} · move ${S.moveLeft}`,'sys');
+  if(S.scene){
+    const oldIso=S.scene.iso(ox,oy);
+    const newIso=S.scene.iso(nx,ny);
+    // rebuild map so FOW updates live; then tween runner from previous cell
+    if(S.scene.rebuildMap) S.scene.rebuildMap();
+    if(S.scene.runnerGfx){
+      S._moving=true;
+      S.scene.runnerGfx.setPosition(oldIso.sx, oldIso.sy-12);
+      S.scene.tweens.add({
+        targets:S.scene.runnerGfx,
+        x:newIso.sx, y:newIso.sy-12,
+        duration:200,
+        ease:'Cubic.easeOut',
+        onUpdate:()=>{
+          if(!S.camFree && S.scene.runnerGfx){
+            S.scene.cameras.main.centerOn(S.scene.runnerGfx.x, S.scene.runnerGfx.y+12);
+          }
+        },
+        onComplete:()=>{ S._moving=false; }
+      });
+    } else if(!S.camFree){
+      S.scene.centerCam(nx,ny);
+    }
+  }
   checkDetection();
   maybeAutoEndTurn();
 }
@@ -577,22 +599,44 @@ function iceCounterApplyAntiPerson(t, name, mitigated){
     const v = Math.floor((+n||0) * scale);
     return mitigated ? Math.max(0, v) : Math.max(0, +n||0);
   };
-  if(/hellhound/.test(name)){
+  const n = String(name||'').toLowerCase();
+  // Hellhound family — physical wounds
+  if(/hellhound|werewolf|mastiff|fatal\s*attractor|cerebus/.test(n)){
     const a=d6(), b=d6();
     const raw=a+b, dmg=soft(raw);
-    log(`  Hellhound fangs: 2D6 = ${a}+${b} = ${raw}`+(mitigated?` · QTE soft ${dmg}`:'') ,'bad');
+    log(`  ${t.c.name} fangs: 2D6 = ${a}+${b} = ${raw}`+(mitigated?` · QTE soft ${dmg}`:'') ,'bad');
     if(typeof iceSpeak==='function') iceSpeak(t.c.name, mitigated?'Signal slipped…':'Flesh. Through the wire.');
     if(dmg>0) applyDamage(dmg,'wound');
     else log('  QTE nullified the bite.','ok');
-  } else if(/hellbolt|firestarter/.test(name)){
-    const a=d6(); const dmg=soft(a);
-    log(`  ${t.c.name} burns for ${a}`+(mitigated?` → ${dmg}`:'')+'.','bad');
+  }
+  // Bolts / fire — physical
+  else if(/hellbolt|firestarter|cinderella|homewrecker|bolter|data\s*darts|sword|neural\s*blade/.test(n)){
+    let dice=1;
+    if(/bolter/.test(n)) dice=4;
+    else if(/data\s*darts/.test(n)) dice=3;
+    let raw=0; const parts=[];
+    for(let i=0;i<dice;i++){ const v=d6(); parts.push(v); raw+=v; }
+    const dmg=soft(raw);
+    log(`  ${t.c.name}: ${dice}D6 = ${parts.join('+')} = ${raw}`+(mitigated?` → ${dmg}`:'')+'.','bad');
     if(dmg>0) applyDamage(dmg,'wound');
-  } else if(/brainwipe|zombie|flatline/.test(name)){
+  }
+  // Zombie / Brainwipe / Code Corpse / Cortical Scrub — INT damage
+  else if(/brainwipe|zombie|code\s*corpse|cortical\s*scrub|flatline/.test(n)){
     const a=d6(); const dmg=soft(a);
-    log(`  Neural attack ${a}`+(mitigated?` → ${dmg}`:'')+'.','bad');
+    log(`  Neural shred ${a}`+(mitigated?` → ${dmg}`:'')+' INT.','bad');
+    if(typeof iceSpeak==='function') iceSpeak(t.c.name, mitigated?'Echoes only…':'Forebrain. Open.');
     if(dmg>0) applyDamage(dmg,'int');
-  } else if(/jack.?attack/.test(name)){
+  }
+  // Liche — INT + memory overwrite (junk/corrupt saves)
+  else if(/liche/.test(n)){
+    const a=d6(); const dmg=soft(a);
+    log(`  Liche grip: 1D6 = ${a}`+(mitigated?` → ${dmg}`:'')+' INT. Selective memory burn.','bad');
+    if(typeof iceSpeak==='function') iceSpeak(t.c.name, mitigated?'The crown slips…':'Your past is mine.');
+    if(dmg>0) applyDamage(dmg,'int');
+    if(!mitigated && typeof licheMemoryCorrupt==='function') licheMemoryCorrupt();
+    else if(mitigated) log('  QTE — memory overwrite aborted.','ok');
+  }
+  else if(/jack.?attack/.test(n)){
     if(mitigated){
       log('  QTE — Jack Attack partially held; brief lock only.','info');
       S.jackLocked=Math.max(S.jackLocked|0, 1+Math.floor(Math.random()*2));
@@ -602,10 +646,15 @@ function iceCounterApplyAntiPerson(t, name, mitigated){
     } else {
       S.jackLocked=d6(); log(`  Locked out of menu actions for ${S.jackLocked} turns.`,'bad');
     }
-  } else if(/stun|glue|knockout|spazz/.test(name)){
+  }
+  else if(/stun|glue|knockout|spazz|shockr|tko|red-?out|stationery|ball and chain|pepe|psychodrome|threat|audio virus/.test(n)){
     let lock=d6();
     if(mitigated) lock=Math.max(1, Math.floor(lock*0.5));
     S.jackLocked=lock; log(`  Locked out of menu actions for ${S.jackLocked} turns.`,'bad');
+    if(/knockout|psychodrome|tko/.test(n) && !mitigated){
+      log('  Consciousness fragmenting — dump risk.','bad');
+      applyDamage(soft(d6()),'int');
+    }
   } else {
     const a=d6(); const dmg=soft(a);
     if(dmg>0) applyDamage(dmg,'wound');
@@ -625,13 +674,13 @@ function iceCounter(t){
   const name=(t.c.iceName||t.c.name||'').toLowerCase();
   const dispName = t.c.name||t.c.iceName||'ICE';
   // Anti-personnel / black ICE that hits the body or mind
-  if(/hellhound|hellbolt|stun|brainwipe|zombie|spazz|glue|knockout|firestarter|jack.?attack|hell|bloodhound|killer iv|cerebus|flatline/.test(name)){
+  if(/hellhound|hellbolt|stun|brainwipe|zombie|liche|code\s*corpse|cortical|spazz|glue|knockout|firestarter|jack.?attack|hell|bloodhound|killer iv|cerebus|flatline|werewolf|mastiff|bolter|sword|neural|data\s*darts|pepe|psychodrome|red-?out|stationery|shockr|tko|threat|audio|cinderella|homewrecker|fatal/.test(name)){
     const atk=netDefendRoll(t.c.str,true); // ICE attacks with fort INT
     const def=netAttackRoll(deck().dw); // defend with Data Wall program STR as stand-in + INT+IF
     log(`  ${t.c.name} strikes: ${atk.detail} vs DataWall ${def.detail}`,'sys');
     if(atk.total>def.total){
       // Black ICE / lethal anti-personnel → QTE before damage
-      const isBlack = (typeof qteIsBlackIce==='function') ? qteIsBlackIce(name) : /hellhound|hellbolt|brainwipe|firestarter|jack|bloodhound|cerebus|flatline/i.test(name);
+      const isBlack = (typeof qteIsBlackIce==='function') ? qteIsBlackIce(name) : /hellhound|hellbolt|brainwipe|zombie|liche|firestarter|jack|bloodhound|cerebus|flatline|code\s*corpse|cortical/i.test(name);
       if(isBlack && typeof qteBlackIceDefense==='function'){
         iceCounterBlackIceQTE(t, name, dispName);
         return;

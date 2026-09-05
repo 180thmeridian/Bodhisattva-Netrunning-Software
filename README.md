@@ -1,4 +1,4 @@
-# CP2020 Netrun Terminal 1.6.48
+# CP2020 Netrun Terminal 1.6.49
 
 Offline helper for **Cyberpunk 2020** netrunning (Electron + Phaser 3).
 
@@ -36,7 +36,7 @@ Run in order: **0_CHECK** → **1_INSTALL** → **2_BUILD**.
 Output:
 
 ```
-dist\CP2020-Netrun-Terminal-1.6.48-Setup.exe
+dist\CP2020-Netrun-Terminal-1.6.49-Setup.exe
 ```
 
 Also produced (needed for auto-update): `latest.yml`, `*.exe.blockmap`.

@@ -6,39 +6,73 @@ class NetScene extends Phaser.Scene {
     S.scene=this; this.mapRoot=this.add.container(0,0); this.runnerGfx=null;
     this.cameras.main.setBackgroundColor('#010402');
     this.cameras.main.setRoundPixels(true);
-    this.input.on('wheel',(p,o,dx,dy)=>{ this.cameras.main.zoom=Phaser.Math.Clamp(this.cameras.main.zoom-dy*0.001,0.5,2.0); });
-    let drag=null;
+    // allow right-drag pan without OS context menu
+    if(this.input.mouse) this.input.mouse.disableContextMenu();
+    try{
+      const cv=this.sys.game.canvas;
+      if(cv){
+        cv.addEventListener('contextmenu',e=>e.preventDefault());
+        cv.addEventListener('auxclick',e=>{ if(e.button===1) e.preventDefault(); });
+      }
+    }catch(_e){}
+
+    this.input.on('wheel',(p,o,dx,dy)=>{
+      this.cameras.main.zoom=Phaser.Math.Clamp(this.cameras.main.zoom-dy*0.001,0.5,2.0);
+    });
+
     if(typeof S.camFree==='undefined') S.camFree=false;
+    this._camDrag=null;
+
+    const startCamDrag=(p)=>{
+      S.camFree=true;
+      this._camDrag={
+        x:p.x, y:p.y,
+        cx:this.cameras.main.scrollX,
+        cy:this.cameras.main.scrollY
+      };
+    };
+    const applyCamDrag=(p)=>{
+      if(!this._camDrag) return;
+      const z=this.cameras.main.zoom||1;
+      this.cameras.main.scrollX=this._camDrag.cx-(p.x-this._camDrag.x)/z;
+      this.cameras.main.scrollY=this._camDrag.cy-(p.y-this._camDrag.y)/z;
+    };
+
     this.input.on('pointerdown',p=>{
-      if(p.middleButtonDown()||p.rightButtonDown()){
-        // free-look: unlock camera follow until re-centered
-        S.camFree=true;
-        drag={x:p.x,y:p.y,cx:this.cameras.main.scrollX,cy:this.cameras.main.scrollY};
+      // 0=left, 1=middle, 2=right — middle/right always pan; left pans only in free-look
+      if(p.button===1 || p.button===2){
+        startCamDrag(p);
+        return;
+      }
+      if(p.button===0 && S.camFree && !S.demonPlan){
+        startCamDrag(p);
         return;
       }
       // left-click: demon route waypoint
-      if(S.demonPlan && p.leftButtonDown()){
+      if(S.demonPlan && p.button===0){
         const wx=p.worldX, wy=p.worldY;
-        // iso inverse approx — reuse grid hit from hover logic
         let best=null, bestD=1e9;
         if(S.grid){
           for(let y=0;y<S.grid.length;y++){
             for(let x=0;x<(S.grid[0]||[]).length;x++){
-              // world pos of tile center from scene helpers if any
-              const sx = (x - y) * (TILE_W/2);
-              const sy = (x + y) * (TILE_H/2);
-              const d = (wx-sx)*(wx-sx)+(wy-sy)*(wy-sy);
+              const sx=(x-y)*(TILE_W/2);
+              const sy=(x+y)*(TILE_H/2);
+              const d=(wx-sx)*(wx-sx)+(wy-sy)*(wy-sy);
               if(d<bestD){ bestD=d; best={x,y}; }
             }
           }
         }
-        if(best && bestD < 50*50){
-          demonPlanAddTile(best.x, best.y);
-        }
+        if(best && bestD<50*50) demonPlanAddTile(best.x, best.y);
       }
     });
-    this.input.on('pointerup',()=>drag=null);
-    this.input.on('pointermove',p=>{ if(!drag) return; this.cameras.main.scrollX=drag.cx-(p.x-drag.x); this.cameras.main.scrollY=drag.cy-(p.y-drag.y); });
+    this.input.on('pointermove',p=>{
+      if(!this._camDrag) return;
+      // keep panning while drag active (don't rely on middleButtonDown — Electron often drops it)
+      applyCamDrag(p);
+    });
+    this.input.on('pointerup',()=>{ this._camDrag=null; });
+    this.input.on('pointerupoutside',()=>{ this._camDrag=null; });
+
     if(S.fort) this.rebuildMap(); else this.showPlaceholder();
     // ambient data-rain in empty space
     this._rain=[];

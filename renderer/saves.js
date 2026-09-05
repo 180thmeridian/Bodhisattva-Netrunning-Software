@@ -235,6 +235,91 @@ function deleteSlot(slot){
   if(typeof log==='function') log('Slot '+slot+' cleared.','sys');
 }
 
+/**
+ * Liche memory overwrite (gamified):
+ * - May trash 1–2 filled save slots into "junk" pseudo-memories
+ * - Or wipe a slot entirely
+ * Pseudo-personality fragments replace labels / coordinates.
+ */
+function licheMemoryCorrupt(){
+  if(!saveStorageAvailable()){
+    if(typeof log==='function') log('  Liche claws at memory — no local engrams found.','info');
+    return;
+  }
+  const filled=[];
+  for(let i=1;i<=SAVE_SLOTS;i++){
+    try{
+      const raw=localStorage.getItem(SAVE_PREFIX+i);
+      if(raw) filled.push(i);
+    }catch(_e){}
+  }
+  // always try to taint autosave too
+  const targets=filled.slice();
+  if(Math.random()<0.7) targets.push('auto');
+  if(!targets.length){
+    // implant a junk engram into a random empty slot
+    const slot=1+Math.floor(Math.random()*SAVE_SLOTS);
+    const junk={
+      version:SAVE_VERSION,
+      savedAt:new Date().toISOString(),
+      label:'∴ PSEUDO-SELF ∴ '+['Loyal Corp Asset','Dead Netrunner','Sysop Echo','Empty Smile','Someone Else'][Math.floor(Math.random()*5)],
+      licheJunk:true,
+      fort:null,
+      runner:{x:0,y:0},
+      turn:0, wounds:99, intDmg:99,
+      notes:'Memory overwritten by Liche. This person is not you.'
+    };
+    try{
+      localStorage.setItem(SAVE_PREFIX+slot, JSON.stringify(junk));
+      if(typeof log==='function') log('  Liche implants junk engram → slot '+slot+' ('+junk.label+').','bad');
+    }catch(_e){}
+    return;
+  }
+  // corrupt up to 2 targets
+  const n=Math.min(targets.length, 1+(Math.random()<0.45?1:0));
+  for(let k=0;k<n;k++){
+    const idx=Math.floor(Math.random()*targets.length);
+    const t=targets.splice(idx,1)[0];
+    if(t==='auto'){
+      try{
+        const raw=localStorage.getItem(AUTOSAVE_KEY);
+        if(!raw) continue;
+        const snap=JSON.parse(raw);
+        snap.label='∴ OVERWRITE ∴ '+(snap.label||'session');
+        snap.licheJunk=true;
+        snap.intDmg=Math.max(snap.intDmg|0, 3+Math.floor(Math.random()*4));
+        snap.runner={x:Math.floor(Math.random()*8), y:Math.floor(Math.random()*8)};
+        snap.notes='Liche pseudo-personality fragment. Coordinates lie.';
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snap));
+        if(typeof log==='function') log('  Liche rewrites autosave engram.','bad');
+      }catch(_e){}
+    } else if(Math.random()<0.35){
+      // full erase
+      try{
+        localStorage.removeItem(SAVE_PREFIX+t);
+        if(typeof log==='function') log('  Memory slot '+t+' — ERASED by Liche.','bad');
+      }catch(_e){}
+    } else {
+      // replace with junk / mutated copy
+      try{
+        const raw=localStorage.getItem(SAVE_PREFIX+t);
+        let snap;
+        try{ snap=JSON.parse(raw); }catch(_e){ snap={}; }
+        const personas=['Corp Asset #'+Math.floor(Math.random()*9000),'Ghost of You','Sysop\'s Pet','Blank Stare','Wrong Name'];
+        snap.label='∴ '+personas[Math.floor(Math.random()*personas.length)];
+        snap.licheJunk=true;
+        snap.savedAt=new Date().toISOString();
+        snap.intDmg=Math.max(snap.intDmg|0, 2+Math.floor(Math.random()*5));
+        if(snap.runner){ snap.runner.x^=3; snap.runner.y^=5; }
+        snap.notes='Selective memory burn. Personality scaffold unstable.';
+        localStorage.setItem(SAVE_PREFIX+t, JSON.stringify(snap));
+        if(typeof log==='function') log('  Slot '+t+' overwritten → "'+snap.label+'".','bad');
+      }catch(_e){}
+    }
+  }
+}
+window.licheMemoryCorrupt = licheMemoryCorrupt;
+
 function downloadJson(text, filename){
   const blob = new Blob([text], {type:'application/json'});
   const a = document.createElement('a');

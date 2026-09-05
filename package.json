@@ -1,6 +1,6 @@
 {
   "name": "cp2020-netrun-terminal",
-  "version": "1.6.48",
+  "version": "1.6.49",
   "description": "CP2020 Netrun Terminal — offline Phaser helper for Cyberpunk 2020 netrunning",
   "main": "main.js",
   "author": "Netrun Terminal",

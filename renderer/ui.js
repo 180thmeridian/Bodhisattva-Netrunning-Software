@@ -164,11 +164,34 @@ function viewXY(x,y){
   return {x:rows-1-y, y:x};                      // 270 CW
 }
 function rotateMap(dir){
-  // dir +1 CW, -1 CCW
-  S.mapRot = (S.mapRot + dir + 4) % 4;
-  log(`Map rotation: ${S.mapRot*90}°`,'info');
-  if(S.scene) S.scene.rebuildMap();
-  spawnCssSparks(12);
+  // dir +1 CW, -1 CCW — smooth spin then snap logical orientation
+  if(S._rotating) return;
+  if(!S.scene || !S.scene.mapRoot){
+    S.mapRot = (S.mapRot + dir + 4) % 4;
+    log(`Map rotation: ${S.mapRot*90}°`,'info');
+    return;
+  }
+  S._rotating=true;
+  const root=S.scene.mapRoot;
+  const targetAngle=(dir>0?90:-90);
+  root.angle=0;
+  // spin current geometry, then snap to new logical orientation
+  S.scene.tweens.add({
+    targets:root,
+    angle:targetAngle,
+    alpha:0.35,
+    duration:400,
+    ease:'Cubic.easeInOut',
+    onComplete:()=>{
+      root.angle=0;
+      root.alpha=1;
+      S.mapRot = (S.mapRot + dir + 4) % 4;
+      log(`Map rotation: ${S.mapRot*90}°`,'info');
+      if(S.scene) S.scene.rebuildMap();
+      S._rotating=false;
+      spawnCssSparks(12);
+    }
+  });
 }
 function screenDirToLogical(dx,dy){
   // transform WASD screen intent into logical grid step under rotation
