@@ -79,19 +79,121 @@
 
   document.getElementById('btn-rot-cw') && (document.getElementById('btn-rot-cw').onclick=()=>rotateMap(1));
   document.getElementById('btn-rot-ccw') && (document.getElementById('btn-rot-ccw').onclick=()=>rotateMap(-1));
-  
-  document.getElementById('btn-update') && (document.getElementById('btn-update').onclick=async()=>{
-    if(!window.netrunAPI||!window.netrunAPI.applyUpdate){
-      log('Offline update API unavailable (browser mode).','bad');
+
+  /* ----- UPDATE button: GitHub full update first, offline ZIP fallback ----- */
+  let _ghBusy = false;
+  function paintUpdateBtn(st){
+    const btn = document.getElementById('btn-update');
+    if(!btn) return;
+    const s = (st && st.status) || 'idle';
+    if(s === 'available'){
+      btn.textContent = 'UPDATE ' + (st.version || '');
+      btn.classList.add('cyan'); btn.classList.remove('amber');
+      btn.title = 'Download GitHub update v' + (st.version || '');
+    } else if(s === 'downloading'){
+      btn.textContent = Math.round(st.percent || 0) + '%';
+      btn.title = st.message || 'Downloading…';
+    } else if(s === 'downloaded'){
+      btn.textContent = 'RESTART';
+      btn.classList.add('cyan'); btn.classList.remove('amber');
+      btn.title = (st.message || 'Restart to install') + ' — click to install now';
+    } else if(s === 'checking'){
+      btn.textContent = '…';
+      btn.title = 'Checking GitHub Releases…';
+    } else {
+      btn.textContent = 'UPDATE';
+      btn.classList.add('amber'); btn.classList.remove('cyan');
+      btn.title = 'Check GitHub update / install offline .zip';
+    }
+  }
+  function onGithubStatus(st){
+    if(!st) return;
+    paintUpdateBtn(st);
+    if(st.status === 'available'){
+      log('GitHub update available: v' + (st.version || '?') + ' — click UPDATE to download.', 'ok');
+    } else if(st.status === 'downloaded'){
+      log(st.message || 'Update downloaded — click RESTART to install.', 'ok');
+    } else if(st.status === 'error' && st.message){
+      // Quiet errors on auto-check; noisy only if user triggered
+      if(_ghBusy) log('GitHub update: ' + st.message, 'bad');
+    }
+  }
+  async function offlineZipUpdate(){
+    if(!window.netrunAPI || !window.netrunAPI.applyUpdate){
+      log('Offline update API unavailable (browser mode).', 'bad');
       return;
     }
-    log('Select update package (.zip)…','sys');
+    log('Select offline update package (.zip)…', 'sys');
     const res = await window.netrunAPI.applyUpdate();
-    if(res.canceled){ log('Update canceled.','sys'); return; }
-    if(!res.ok){ log('Update failed: '+(res.error||'?'),'bad'); return; }
-    log('Update installed: v'+res.version+' (was packaged '+res.previous+'). Restarting…','ok');
-    setTimeout(()=>window.netrunAPI.relaunch(), 600);
+    if(res.canceled){ log('Update canceled.', 'sys'); return; }
+    if(!res.ok){ log('Update failed: ' + (res.error || '?'), 'bad'); return; }
+    log('Offline patch installed: v' + res.version + ' (packaged was ' + res.previous + '). Restarting…', 'ok');
+    setTimeout(() => window.netrunAPI.relaunch(), 600);
+  }
+  document.getElementById('btn-update') && (document.getElementById('btn-update').onclick = async () => {
+    if(!window.netrunAPI){
+      log('Update API unavailable (browser mode).', 'bad');
+      return;
+    }
+    // Prefer GitHub full-app update when packaged
+    if(window.netrunAPI.githubCheck && window.netrunAPI.githubDownload){
+      try{
+        _ghBusy = true;
+        let st = await window.netrunAPI.githubStatus();
+        if(st && st.status === 'downloaded'){
+          log('Installing downloaded update…', 'ok');
+          await window.netrunAPI.githubInstall();
+          return;
+        }
+        if(st && st.status === 'available'){
+          log('Downloading update v' + (st.version || '') + '…', 'sys');
+          const dl = await window.netrunAPI.githubDownload();
+          if(!dl.ok){
+            log('Download failed: ' + (dl.error || '?') + ' — falling back to offline ZIP.', 'bad');
+            await offlineZipUpdate();
+            return;
+          }
+          st = dl.status || await window.netrunAPI.githubStatus();
+          if(st && st.status === 'downloaded'){
+            log('Download complete. Installing…', 'ok');
+            await window.netrunAPI.githubInstall();
+            return;
+          }
+        }
+        // Not available / idle → check first
+        log('Checking GitHub Releases…', 'sys');
+        const chk = await window.netrunAPI.githubCheck();
+        st = (chk && chk.status) || await window.netrunAPI.githubStatus();
+        onGithubStatus(st);
+        if(chk && chk.ok && st && st.status === 'available'){
+          log('Update v' + (st.version || '') + ' found. Downloading…', 'ok');
+          const dl = await window.netrunAPI.githubDownload();
+          if(dl.ok){
+            st = dl.status || await window.netrunAPI.githubStatus();
+            if(st && st.status === 'downloaded'){
+              log('Download complete. Installing…', 'ok');
+              await window.netrunAPI.githubInstall();
+              return;
+            }
+          }
+          log('Download failed: ' + ((dl && dl.error) || '?') + ' — offline ZIP fallback.', 'bad');
+        } else if(st && st.status === 'uptodate'){
+          log('Already up to date on GitHub. Opening offline ZIP dialog…', 'sys');
+        } else if(chk && !chk.ok){
+          log('GitHub check unavailable: ' + (chk.error || '?') + ' — offline ZIP fallback.', 'sys');
+        }
+      } catch(e){
+        log('GitHub update error: ' + (e.message || e) + ' — offline ZIP fallback.', 'bad');
+      } finally {
+        _ghBusy = false;
+      }
+    }
+    await offlineZipUpdate();
   });
+
+  if(window.netrunAPI && window.netrunAPI.onGithubStatus){
+    window.netrunAPI.onGithubStatus(onGithubStatus);
+  }
 
   document.getElementById('btn-rot-reset') && (document.getElementById('btn-rot-reset').onclick=()=>{
     S.mapRot=0; if(S.scene) S.scene.rebuildMap(); log('Map rotation reset.','sys');
@@ -132,8 +234,30 @@
 
   setInterval(saveSession, 15000);
 
-  log('Netrun Terminal ISO 1.6.16 online.','ok');
-  log('CP2020 RAW: 5 spaces + 1 Menu action per net-turn.','info');
-  log('Modules: data · core · fort · combat · demons · saves · netmap · ui · scene','sys');
-  log('F3 debug · seed='+S.seed,'sys');
+  // Version line + quiet GitHub status paint
+  (async () => {
+    let verLabel = '1.6.46';
+    try{
+      if(window.netrunAPI && window.netrunAPI.getVersion){
+        const v = await window.netrunAPI.getVersion();
+        if(v){
+          verLabel = v.active || v.packaged || verLabel;
+          if(v.usingPatch) verLabel += ' (patch)';
+        }
+      }
+    }catch(_e){}
+    const titleEl = document.querySelector('header .title');
+    if(titleEl) titleEl.textContent = 'NETRUN TERMINAL // ISO ' + verLabel;
+    log('Netrun Terminal ISO ' + verLabel + ' online.', 'ok');
+    log('CP2020 RAW: 5 spaces + 1 Menu action per net-turn.', 'info');
+    log('Modules: data · core · fort · combat · demons · saves · netmap · ui · scene', 'sys');
+    log('F3 debug · seed=' + S.seed, 'sys');
+    // Paint any status already set by main's quiet check
+    try{
+      if(window.netrunAPI && window.netrunAPI.githubStatus){
+        const st = await window.netrunAPI.githubStatus();
+        onGithubStatus(st);
+      }
+    }catch(_e){}
+  })();
 })();

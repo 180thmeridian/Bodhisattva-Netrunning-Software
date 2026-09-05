@@ -1,4 +1,4 @@
-# CP2020 Netrun Terminal 1.6.45
+# CP2020 Netrun Terminal 1.6.46
 
 Offline helper for **Cyberpunk 2020** netrunning (Electron + Phaser 3).
 
@@ -10,7 +10,7 @@ Supports:
 - Soft fort JSON validation (Cybersmily-compatible)
 - Session autosave (localStorage)
 - Profile / programs / city grids / terminals
-- **Two update channels**: GitHub Releases (full app) + offline renderer ZIP patches
+- **Two update channels**: GitHub Releases (full app, auto-check) + offline renderer ZIP patches
 
 ---
 
@@ -36,10 +36,12 @@ Run in order: **0_CHECK** → **1_INSTALL** → **2_BUILD**.
 Output:
 
 ```
-dist\CP2020-Netrun-Terminal-1.6.45-Setup.exe
+dist\CP2020-Netrun-Terminal-1.6.46-Setup.exe
 ```
 
-Code signing is **disabled** (`CSC_IDENTITY_AUTO_DISCOVERY=false`, `forceCodeSigning: false`, `signAndEditExecutable: false`).
+Also produced (needed for auto-update): `latest.yml`, `*.exe.blockmap`.
+
+Code signing is **disabled** (`CSC_IDENTITY_AUTO_DISCOVERY=false`, `forceCodeSigning: false`, `signAndEditExecutable: false`, `verifyUpdateCodeSignature: false`).
 
 ---
 
@@ -64,9 +66,36 @@ set NETRUN_DEV=1 && npm start
 
 ```bash
 npm install
-npm run dist:win          # NSIS Setup.exe
-npm run make-update       # offline renderer ZIP → dist-update/
+npm run dist:win            # NSIS Setup.exe + latest.yml (local dist/)
+npm run dist:win:publish    # same + publish to GitHub Releases (needs GH_TOKEN)
+npm run make-update         # offline renderer ZIP → dist-update/
 ```
+
+---
+
+## Auto-update (GitHub Releases) — Setup installs
+
+Packaged Setup builds check GitHub Releases ~4s after launch (`electron-updater`).
+
+**In-app:**
+1. Quiet check on startup (no UI spam if up to date).
+2. **UPDATE** button:
+   - If a newer full release exists → download → install (restart).
+   - If already up to date / check fails → offline ZIP dialog (renderer patch).
+
+**Publishing a release (required for auto-update to work):**
+
+1. Bump `version` in `package.json` and `version.txt`.
+2. Build: `npm run dist:win`
+3. Create a GitHub Release tagged `vX.Y.Z` (must match version).
+4. Upload **all** of:
+   - `CP2020-Netrun-Terminal-X.Y.Z-Setup.exe`
+   - `latest.yml`
+   - `CP2020-Netrun-Terminal-X.Y.Z-Setup.exe.blockmap` (if present)
+
+Or set `GH_TOKEN` / `GITHUB_TOKEN` and run `npm run dist:win:publish`.
+
+Without `latest.yml` in the release assets, clients cannot detect the update.
 
 ---
 
@@ -77,7 +106,7 @@ npm run make-update
 # → dist-update/CP2020_Netrun_Update_<ver>.zip
 ```
 
-In-app **OFFLINE ZIP** → select zip → patch under `userData/CP2020_Netrun/patch`.  
+In-app **UPDATE** → if no GitHub full update, select zip → patch under `userData/CP2020_Netrun/patch`.  
 If `patch.version >= packaged.version`, patched renderer is used. Does not replace `main.js` / Electron shell.
 
 ---
@@ -95,7 +124,6 @@ If `patch.version >= packaged.version`, patched renderer is used. Does not repla
 ```
 
 ---
-
 ## License
 
 MIT

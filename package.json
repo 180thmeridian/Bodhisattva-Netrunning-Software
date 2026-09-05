@@ -1,6 +1,6 @@
 {
   "name": "cp2020-netrun-terminal",
-  "version": "1.6.45",
+  "version": "1.6.46",
   "description": "CP2020 Netrun Terminal — offline Phaser helper for Cyberpunk 2020 netrunning",
   "main": "main.js",
   "author": "Netrun Terminal",
@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "dist:win": "electron-builder --win nsis --x64",
+    "dist:win:publish": "electron-builder --win nsis --x64 --publish always",
     "make-update": "node tools/make-update.cjs"
   },
   "dependencies": {
@@ -37,7 +38,13 @@
         "to": "data"
       }
     ],
-    "publish": null,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "180thmeridian",
+        "repo": "Bodhisattva-Netrunning-Software"
+      }
+    ],
     "win": {
       "target": [
         {
@@ -45,7 +52,8 @@
           "arch": ["x64"]
         }
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,

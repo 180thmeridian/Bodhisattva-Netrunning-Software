@@ -13,5 +13,11 @@ contextBridge.exposeInMainWorld('netrunAPI', {
   githubStatus: () => ipcRenderer.invoke('github:status'),
   githubCheck: () => ipcRenderer.invoke('github:check'),
   githubDownload: () => ipcRenderer.invoke('github:download'),
-  githubInstall: () => ipcRenderer.invoke('github:install')
+  githubInstall: () => ipcRenderer.invoke('github:install'),
+  onGithubStatus: (cb) => {
+    if (typeof cb !== 'function') return () => {};
+    const handler = (_e, status) => cb(status);
+    ipcRenderer.on('github:status-changed', handler);
+    return () => ipcRenderer.removeListener('github:status-changed', handler);
+  }
 });

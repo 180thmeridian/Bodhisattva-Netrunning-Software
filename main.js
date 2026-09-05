@@ -203,15 +203,43 @@ function copyDir(src, dest) {
 /* ========== GitHub Releases auto-update (electron-updater) ========== */
 let lastGithubStatus = { status: 'idle', message: null };
 
+function broadcastGithubStatus() {
+  for (const win of BrowserWindow.getAllWindows()) {
+    try {
+      if (!win.isDestroyed() && win.webContents) {
+        win.webContents.send('github:status-changed', lastGithubStatus);
+      }
+    } catch (_) {}
+  }
+}
+
 function setupAutoUpdater() {
   if (!autoUpdater || !app.isPackaged) return;
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
-  // Uses publish.provider from package.json (github)
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.allowDowngrade = false;
+
+  // Explicit feed (also embedded via package.json build.publish)
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: '180thmeridian',
+      repo: 'Bodhisattva-Netrunning-Software'
+    });
+  } catch (_) {}
+
+  // Unsigned NSIS builds: skip code-signature verification
+  try {
+    if (typeof autoUpdater.verifyUpdateCodeSignature === 'boolean') {
+      autoUpdater.verifyUpdateCodeSignature = false;
+    }
+  } catch (_) {}
 
   autoUpdater.on('checking-for-update', () => {
     lastGithubStatus = { status: 'checking', message: 'Checking GitHub Releases…' };
+    broadcastGithubStatus();
   });
   autoUpdater.on('update-available', (info) => {
     lastGithubStatus = {
@@ -220,9 +248,11 @@ function setupAutoUpdater() {
       version: info.version,
       releaseNotes: info.releaseNotes || null
     };
+    broadcastGithubStatus();
   });
   autoUpdater.on('update-not-available', () => {
     lastGithubStatus = { status: 'uptodate', message: 'Already up to date' };
+    broadcastGithubStatus();
   });
   autoUpdater.on('download-progress', (p) => {
     lastGithubStatus = {
@@ -230,6 +260,7 @@ function setupAutoUpdater() {
       message: `Downloading ${Math.round(p.percent)}%`,
       percent: p.percent
     };
+    broadcastGithubStatus();
   });
   autoUpdater.on('update-downloaded', (info) => {
     lastGithubStatus = {
@@ -237,12 +268,14 @@ function setupAutoUpdater() {
       message: `v${info.version} ready — restart to install`,
       version: info.version
     };
+    broadcastGithubStatus();
   });
   autoUpdater.on('error', (err) => {
     lastGithubStatus = {
       status: 'error',
       message: (err && err.message) ? err.message.slice(0, 200) : String(err)
     };
+    broadcastGithubStatus();
   });
 }
 
