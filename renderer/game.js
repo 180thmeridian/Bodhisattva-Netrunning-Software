@@ -17,15 +17,22 @@
   window.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
     const k=e.key.toLowerCase();
-    // free-look: arrows / Shift+WASD pan camera (does not move runner)
-    if(S.camFree && S.scene && S.scene.cameras){
-      const cam=S.scene.cameras.main;
-      const step=48/(cam.zoom||1);
-      if(k==='arrowup'||(e.shiftKey&&k==='w')){ e.preventDefault(); cam.scrollY-=step; return; }
-      if(k==='arrowdown'||(e.shiftKey&&k==='s')){ e.preventDefault(); cam.scrollY+=step; return; }
-      if(k==='arrowleft'||(e.shiftKey&&k==='a')){ e.preventDefault(); cam.scrollX-=step; return; }
-      if(k==='arrowright'||(e.shiftKey&&k==='d')){ e.preventDefault(); cam.scrollX+=step; return; }
+    if(e.key==='Escape'){
+      const settings=document.getElementById('settings-panel');
+      if(settings?.classList.contains('open')) return;
+      const mm=document.getElementById('main-menu');
+      if(mm?.classList.contains('on')){
+        hideMainMenu();
+        const shell=document.getElementById('shell'); if(shell) shell.style.visibility='visible';
+      }else if(typeof showMainMenu==='function'){
+        showMainMenu({overlay:!!S.fort});
+      }
+      e.preventDefault();
+      return;
     }
+    const settingsOpen=document.getElementById('settings-panel')?.classList.contains('open');
+    const mainMenuOpen=document.getElementById('main-menu')?.classList.contains('on');
+    if(settingsOpen || mainMenuOpen) return;
     if(k==='w'||k==='arrowup'){ e.preventDefault(); tryMove(0,-1); }
     else if(k==='s'||k==='arrowdown'){ e.preventDefault(); tryMove(0,1); }
     else if(k==='a'||k==='arrowleft'){ e.preventDefault(); tryMove(-1,0); }
@@ -36,7 +43,7 @@
       e.preventDefault();
       if(S.scene && typeof S.scene.lockCamOnRunner==='function'){
         S.scene.lockCamOnRunner();
-        if(typeof log==='function') log('Camera locked on runner (C / Home). MMB/RMB-drag free-look; LMB-drag while free.','sys');
+        if(typeof log==='function') log('Camera locked on runner. Hold RMB to move the camera independently.','sys');
       }
     }
     else if(k==='l') document.getElementById('btn-load')?.click();
@@ -51,10 +58,14 @@
     if(el) el.addEventListener('change', updateMu);
   });
 
+  document.getElementById('win-min')?.addEventListener('click',()=>window.netrunAPI?.minimizeWindow?.());
+  document.getElementById('win-max')?.addEventListener('click',()=>window.netrunAPI?.toggleMaximizeWindow?.());
+  document.getElementById('win-close')?.addEventListener('click',()=>typeof prepareQuitToNetMap==='function' ? prepareQuitToNetMap() : window.netrunAPI?.quitApp?.());
+
   // Buttons
   document.getElementById('btn-save') && (document.getElementById('btn-save').onclick=()=>{ if(typeof promptSaveUI==='function') promptSaveUI(); });
   document.getElementById('btn-loadsave') && (document.getElementById('btn-loadsave').onclick=()=>{ if(typeof promptLoadUI==='function') promptLoadUI(); });
-  document.getElementById('btn-sample') && (document.getElementById('btn-sample').onclick=()=>loadFort(SAMPLE_FORT));
+  document.getElementById('btn-sample') && (document.getElementById('btn-sample').onclick=()=>loadSampleFort());
   document.getElementById('btn-load') && (document.getElementById('btn-load').onclick=async()=>{
     if(window.netrunAPI && window.netrunAPI.openJsonFile){
       try{
@@ -83,10 +94,7 @@
   document.getElementById('btn-end') && (document.getElementById('btn-end').onclick=()=>endTurn());
   document.getElementById('btn-log-clear') && (document.getElementById('btn-log-clear').onclick=()=>clearNetLog());
   document.getElementById('btn-log-copy') && (document.getElementById('btn-log-copy').onclick=()=>copyNetLog());
-  document.getElementById('btn-exit') && (document.getElementById('btn-exit').onclick=()=>{
-    if(window.netrunAPI && window.netrunAPI.quitApp) window.netrunAPI.quitApp();
-    else window.close();
-  });
+  document.getElementById('m-disconnect') && (document.getElementById('m-disconnect').onclick=()=>{ if(typeof disconnectFromFort==='function') disconnectFromFort(); });
   document.getElementById('btn-add-prog') && (document.getElementById('btn-add-prog').onclick=()=>{
     S.programs.push({name:'Custom',cls:'Utility',str:3,mu:1});
     S.selectedProg=S.programs.length-1;
@@ -223,7 +231,7 @@
   document.getElementById('citygrid-close') && (document.getElementById('citygrid-close').onclick=closeCityGrid);
   document.getElementById('citygrid-enter') && (document.getElementById('citygrid-enter').onclick=()=>{
     closeCityGrid();
-    if(typeof loadFort==='function') loadFort(SAMPLE_FORT);
+    if(typeof loadSampleFort==='function') loadSampleFort();
     log('Sample fort loaded in local city context.','ok');
   });
   defaultPrograms();
@@ -234,19 +242,25 @@
   aiMsg('SYS','Uplink established. Local grid stable.');
 
   fillPresetSelect();
-  bootPhaser();
-  updateLocHud();
-  refreshClock();
+
+  // Apply the persisted native window size BEFORE creating Phaser.  Previously
+  // Phaser was created against the BrowserWindow's initial 1400×900 fallback,
+  // then Electron changed the window to the saved resolution.  The first fort
+  // fit could consequently use a stale viewport until an external resize
+  // (e.g. pressing Win and returning to the app) forced a recalculation.
+  // Do not use browser fullscreen: the main process owns the native window mode.
+  (async()=>{
+    try{ await window.NetrunSettings?.applyInitial?.(); }catch(_e){}
+    await new Promise(r=>requestAnimationFrame(r));
+    await new Promise(r=>requestAnimationFrame(r));
+    bootPhaser();
+    updateLocHud();
+    refreshClock();
+  })();
 
   if(!S.seed) setSeed(Date.now()>>>0);
-  loadSession();
-  // best-effort fullscreen (works even via offline patch; F11 also via main when rebuilt)
-  try{
-    const el=document.documentElement;
-    if(el && el.requestFullscreen && !document.fullscreenElement){
-      setTimeout(()=>{ el.requestFullscreen().catch(()=>{}); }, 400);
-    }
-  }catch(_e){}
+  // IMPORTANT: do not restore the autosave here. Profile selection must remain the first
+  // interactive screen after the Matrix boot. Continue Session restores it explicitly.
 
   setInterval(saveSession, 15000);
 

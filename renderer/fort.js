@@ -269,6 +269,24 @@ function spendAction(){
   S.actionLeft=0; updateHUD(); return true;
 }
 
+function loadSampleFort(){
+  // Keep the built-in test fortress available as a real gameplay fixture.
+  // Clone it so gameplay/state changes can never mutate the source template.
+  const template = window.SAMPLE_FORT;
+  if(!template || typeof template!=='object'){
+    if(typeof log==='function') log('Sample DataFort is unavailable. Check renderer/data.js.','bad');
+    return false;
+  }
+  let sample;
+  try{ sample=JSON.parse(JSON.stringify(template)); }
+  catch(e){
+    if(typeof log==='function') log('Sample DataFort clone failed: '+e.message,'bad');
+    return false;
+  }
+  loadFort(sample);
+  return !!S.fort;
+}
+
 function loadFort(raw){
   const errs=validateFort(raw);
   if(errs.length){
@@ -306,6 +324,7 @@ window.cellAt = cellAt; window.neighbors4 = neighbors4;
 window.tickBuffs = tickBuffs; window.startTurn = startTurn;
 window.updateHUD = updateHUD; window.spendAction = spendAction;
 window.loadFort = loadFort;
+window.loadSampleFort = loadSampleFort;
 window.revealAround=revealAround;
 window.isOpaqueTile=isOpaqueTile;
 window.isExplored=isExplored;

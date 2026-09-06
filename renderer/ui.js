@@ -803,7 +803,8 @@ function runCommand(raw){
   } else if(cmd==='end'){
     if(typeof endTurn==='function') endTurn();
   } else if(cmd==='exit'||cmd==='quit'){
-    if(window.netrunAPI&&window.netrunAPI.quitApp) window.netrunAPI.quitApp();
+    if(typeof prepareQuitToNetMap==='function') prepareQuitToNetMap();
+    else if(window.netrunAPI&&window.netrunAPI.quitApp) window.netrunAPI.quitApp();
     else window.close();
   } else {
     log('Unknown command: '+cmd+' (help)','bad');

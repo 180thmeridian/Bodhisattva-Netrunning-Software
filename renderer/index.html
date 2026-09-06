@@ -40,6 +40,8 @@ button.red{color:var(--r);border-color:#401018}
   color:var(--g);font-family:inherit;font-size:11px;padding:2px 4px}
 .stat-row input.wide{width:110px}
 #game-wrap{position:relative;background:#010402;overflow:hidden}
+#phaser-host{position:absolute;inset:0;width:100%;height:100%;overflow:hidden}
+#phaser-host canvas{display:block;width:100%;height:100%}
 #hud-top{
   position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:5;
   pointer-events:none; opacity:0; transition:opacity .35s ease;
@@ -69,7 +71,10 @@ button.red{color:var(--r);border-color:#401018}
   0%,100%{ opacity:1; filter:brightness(1); }
   50%{ opacity:0.55; filter:brightness(1.3); }
 }
-#prog-list{max-height:240px;overflow:auto}
+/* Left deck panel: programs consume all vertical space left after the dossier. */
+#left{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#left #prog-list{flex:1 1 auto;min-height:80px;max-height:none;overflow-y:auto;overflow-x:hidden}
+#left > h3, #left > p, #left > .stat-row, #left > .ro-stat, #left > #dossier, #left > div[style]{flex-shrink:0}
 .prog{display:grid;grid-template-columns:1fr auto auto auto;gap:4px;align-items:center;
   border:1px solid var(--border);padding:5px 7px;margin-bottom:4px;background:#050c08;cursor:pointer}
 .prog.sel{border-color:var(--c);box-shadow:0 0 8px rgba(51,204,255,.25)}
@@ -538,6 +543,11 @@ button.red-exit:hover{ border-color:var(--r); box-shadow:0 0 8px rgba(255,51,85,
   color:var(--w); font-family:inherit;
 }
 #boot-screen.on{ display:flex; }
+.boot-window-tools{
+  position:absolute; top:14px; right:14px; z-index:3;
+  display:flex; gap:6px;
+}
+.boot-window-tools button{ padding:6px 10px; }
 .boot-logo{
   font-size:28px; letter-spacing:6px; color:var(--g);
   text-shadow:0 0 18px rgba(51,255,102,.5);
@@ -991,6 +1001,50 @@ html.theme-toxic{
 
 
 /* ===== Main menu ===== */
+
+/* ===== Main menu / settings ===== */
+#main-menu{
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 30%, rgba(20,60,35,.22), transparent 70%),
+    linear-gradient(180deg, rgba(2,8,6,.72), rgba(1,4,2,.82));
+  backdrop-filter:blur(2px);
+}
+#main-menu.overlay-mode{background:rgba(1,5,3,.58)}
+#main-menu .mm-panel{position:relative;z-index:2}
+#main-menu.overlay-mode .mm-logo,
+#main-menu.overlay-mode .mm-sub,
+#main-menu.overlay-mode .mm-handle,
+#main-menu.overlay-mode .mm-foot{ text-shadow:0 0 8px #000,0 0 18px #000; }
+#settings-panel{
+  position:fixed; inset:0; z-index:9100; display:none;
+  align-items:center; justify-content:center;
+  background:rgba(1,5,3,.78); backdrop-filter:blur(3px);
+}
+#settings-panel.open{display:flex}
+.settings-box{
+  width:min(620px,92vw); max-height:88vh; overflow:auto;
+  border:1px solid var(--border); background:rgba(4,12,8,.98);
+  box-shadow:0 0 40px rgba(51,255,102,.12),inset 0 0 30px rgba(0,20,10,.45);
+  padding:18px 20px;
+}
+.settings-head{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:14px}
+.settings-head h2{color:var(--c);font-size:15px;letter-spacing:2px;flex:1}
+.settings-section{border:1px solid var(--border);padding:12px;margin-bottom:10px;background:#030a06}
+.settings-section h3{color:var(--a);font-size:11px;letter-spacing:1px;margin-bottom:10px}
+.settings-row{display:grid;grid-template-columns:180px 1fr auto;gap:10px;align-items:center;margin:8px 0;color:var(--m)}
+.settings-row label{color:var(--w)}
+.settings-row select,.settings-row input[type=range]{
+  width:100%;background:#050a07;color:var(--g);border:1px solid var(--border);
+  font-family:inherit;padding:4px;
+}
+.settings-row input[type=range]{padding:0;accent-color:#33ff66}
+.settings-value{color:var(--g);min-width:45px;text-align:right}
+.settings-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.settings-note{color:var(--m);font-size:10px;line-height:1.4;margin-top:8px}
+@media(max-width:650px){
+  .settings-row{grid-template-columns:1fr auto}
+  .settings-row select,.settings-row input[type=range]{grid-column:1/-1}
+}
 #main-menu{
   display:none; position:fixed; inset:0; z-index:9000;
   background:
@@ -1051,6 +1105,22 @@ header .btns button{ padding:4px 8px; font-size:10px; }
 .menu-grid button{ width:100%; }
 .menu-grid .menu-span{ grid-column:1 / -1; }
 
+
+/* Electron frameless window chrome */
+header{ -webkit-app-region:drag; user-select:none; }
+header button, header input, header select, header .btns, header .btn-group, header #hdr-loc, header #net-clock{
+  -webkit-app-region:no-drag;
+}
+#window-controls{display:flex;gap:3px;margin-left:4px}
+#window-controls button{width:28px;height:24px;padding:0;line-height:22px;font-size:12px}
+#window-controls .close{color:var(--r);border-color:#401018}
+.boot-window-tools .settings-trigger{padding:4px 8px;font-size:10px;letter-spacing:1px}
+header .btns #btn-settings{padding:4px 8px;font-size:10px;letter-spacing:0}
+
+
+body[data-window-mode="windowed"] #shell{border:1px solid var(--border)}
+body[data-window-mode="borderless"] #shell{border:none}
+body[data-window-mode="fullscreen"] #shell{border:none}
 </style>
 </head>
 <body>
@@ -1059,19 +1129,22 @@ header .btns button{ padding:4px 8px; font-size:10px; }
 <div id="crt-glow"></div><div id="crt-scan"></div><div id="crt-vignette"></div><div id="crt-noise"></div><div id="crt-glitch"></div><div id="crt-roll"></div><div id="crt-rgb"></div>
 
 <div id="boot-screen">
-  <div class="boot-logo">NETRUN TERMINAL</div>
-  <div class="boot-sub">CP2020 · SECURE INTERFACE · PROFILE GATE</div>
+  <div class="boot-window-tools">
+    <button type="button" class="amber settings-trigger" id="boot-settings" data-i18n="settings.button" title="Open settings">⚙ SETTINGS</button>
+  </div>
+  <div class="boot-logo" data-i18n="boot.logo">NETRUN TERMINAL</div>
+  <div class="boot-sub" data-i18n="boot.sub">CP2020 · SECURE INTERFACE · PROFILE GATE</div>
   <div class="boot-panel">
     <div id="boot-select">
-      <h2>SELECT NETRUNNER</h2>
+      <h2 data-i18n="profile.select">SELECT NETRUNNER</h2>
       <div class="boot-actions">
-        <button type="button" id="btn-boot-create" class="cyan">REGISTER NEW</button>
-        <button type="button" id="btn-boot-import" class="amber">IMPORT PROFILE</button>
+        <button type="button" id="btn-boot-create" class="cyan" data-i18n="profile.register">REGISTER NEW</button>
+        <button type="button" id="btn-boot-import" class="amber" data-i18n="profile.import">IMPORT PROFILE</button>
       </div>
       <div class="profile-cards" id="profile-cards"></div>
     </div>
     <div id="boot-create" class="hidden boot-form">
-      <h2>REGISTER NETRUNNER</h2>
+      <h2 data-i18n="profile.registerTitle">REGISTER NETRUNNER</h2>
       <p class="hint">Stats feed Interface combat. Body Type sets BTM — subtracted from each wound hit (min 1). Cyberdeck CPU cores affect multitasking flavour only. Export the profile JSON to share with another player.</p>
       <label>HANDLE <input id="pf-handle" value="Ghost" maxlength="24" /></label>
       <label>REAL NAME <input id="pf-real" value="Orest Rozalski" maxlength="40" /></label>
@@ -1163,21 +1236,74 @@ header .btns button{ padding:4px 8px; font-size:10px; }
 
 
 <div id="main-menu">
-  <div class="mm-logo">NETRUN TERMINAL</div>
-  <div class="mm-sub">CYBERPUNK 2020 · INTERFACE GATE</div>
+  <div class="mm-logo" data-i18n="boot.logo">NETRUN TERMINAL</div>
+  <div class="mm-sub" data-i18n="menu.sub">CYBERPUNK 2020 · INTERFACE GATE</div>
   <div class="mm-handle" id="mm-handle">—</div>
   <div class="mm-panel">
-    <button type="button" class="mm-btn cyan" id="mm-enter">ENTER NET <span class="tag">RUN</span></button>
-    <button type="button" class="mm-btn amber" id="mm-continue">CONTINUE SESSION <span class="tag">SAVE</span></button>
-    <button type="button" class="mm-btn stub" id="mm-char" disabled>CHARACTER <span class="tag">SOON</span></button>
-    <button type="button" class="mm-btn stub" id="mm-settings" disabled>SETTINGS <span class="tag">SOON</span></button>
-    <button type="button" class="mm-btn" id="mm-profiles">PROFILES <span class="tag">SWITCH</span></button>
-    <button type="button" class="mm-btn" id="mm-update">UPDATE <span class="tag">PATCH</span></button>
-    <button type="button" class="mm-btn red" id="mm-quit">QUIT <span class="tag">EXIT</span></button>
+    <button type="button" class="mm-btn cyan" id="mm-enter"><span data-i18n="menu.enter">ENTER NET</span> <span class="tag" data-i18n="tag.run">RUN</span></button>
+    <button type="button" class="mm-btn amber" id="mm-continue"><span data-i18n="menu.continue">CONTINUE SESSION</span> <span class="tag" data-i18n="tag.save">SAVE</span></button>
+    <button type="button" class="mm-btn stub" id="mm-char" disabled><span data-i18n="menu.character">CHARACTER</span> <span class="tag" data-i18n="tag.soon">SOON</span></button>
+    <button type="button" class="mm-btn amber" id="mm-settings"><span data-i18n="menu.settings">SETTINGS</span> <span class="tag" data-i18n="tag.config">CONFIG</span></button>
+    <button type="button" class="mm-btn" id="mm-profiles"><span data-i18n="menu.profiles">PROFILES</span> <span class="tag" data-i18n="tag.switch">SWITCH</span></button>
+    <button type="button" class="mm-btn" id="mm-update"><span data-i18n="menu.update">UPDATE</span> <span class="tag" data-i18n="tag.patch">PATCH</span></button>
+    <button type="button" class="mm-btn red" id="mm-quit"><span data-i18n="menu.quit">QUIT</span> <span class="tag" data-i18n="tag.exit">EXIT</span></button>
   </div>
-  <div class="mm-foot">v1.6.51 · WASD move · R run · T end turn · C camera lock</div>
+  <div class="mm-foot" data-i18n="menu.foot">v1.6.51 · WASD move · R run · T end turn · C camera lock</div>
 </div>
 
+
+<div id="settings-panel" aria-hidden="true">
+  <div class="settings-box" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="settings-head">
+      <h2 id="settings-title" data-i18n="settings.title">SETTINGS</h2>
+      <button type="button" class="red" id="settings-close" data-i18n="settings.close">CLOSE</button>
+    </div>
+    <section class="settings-section">
+      <h3 data-i18n="settings.display">DISPLAY</h3>
+      <div class="settings-row">
+        <label for="set-display-mode" data-i18n="settings.mode">WINDOW MODE</label>
+        <select id="set-display-mode">
+          <option value="windowed" data-i18n="settings.windowed">WINDOWED</option>
+          <option value="borderless" data-i18n="settings.borderless">BORDERLESS WINDOW</option>
+          <option value="fullscreen" data-i18n="settings.fullscreen">FULLSCREEN</option>
+        </select><span></span>
+      </div>
+      <div class="settings-row">
+        <label for="set-resolution" data-i18n="settings.resolution">RESOLUTION</label>
+        <select id="set-resolution"></select><span></span>
+      </div>
+    </section>
+    <section class="settings-section">
+      <h3 data-i18n="settings.audio">AUDIO</h3>
+      <div class="settings-row">
+        <label for="set-music" data-i18n="settings.music">MUSIC</label>
+        <input id="set-music" type="range" min="0" max="100" step="1"><span class="settings-value" id="set-music-val">70%</span>
+      </div>
+      <div class="settings-row">
+        <label for="set-sfx" data-i18n="settings.sfx">SOUND EFFECTS</label>
+        <input id="set-sfx" type="range" min="0" max="100" step="1"><span class="settings-value" id="set-sfx-val">80%</span>
+      </div>
+      <div class="settings-actions">
+        <button type="button" class="cyan" id="set-test-music" data-i18n="settings.test">TEST MUSIC</button>
+        <button type="button" class="cyan" id="set-test-sfx" data-i18n="settings.test">TEST SFX</button>
+      </div>
+    </section>
+    <section class="settings-section">
+      <h3 data-i18n="settings.language">LANGUAGE</h3>
+      <div class="settings-row">
+        <label for="set-language" data-i18n="settings.language">LANGUAGE</label>
+        <select id="set-language">
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+        </select><span></span>
+      </div>
+      <div class="settings-note" data-i18n="settings.hint">Changes are saved automatically.</div>
+    </section>
+    <div class="settings-actions">
+      <button type="button" class="amber" id="settings-back" data-i18n="settings.back">BACK</button>
+    </div>
+  </div>
+</div>
 <div id="shell">
 <header>
   <div class="title">NETRUN TERMINAL // ISO 1.6.51</div>
@@ -1187,26 +1313,30 @@ header .btns button{ padding:4px 8px; font-size:10px; }
   <div class="btns">
     <div class="btn-group" title="Datafort">
       <span class="grp-label">Fort</span>
-      <button id="btn-load" class="cyan" title="Load Cybersmily / fort JSON">LOAD</button>
-      <button id="btn-sample" class="amber" title="Sample datafort">SAMPLE</button>
-      <button id="btn-netmap" class="cyan" title="World netmap">NETMAP</button>
+      <button id="btn-load" data-i18n="header.load" class="cyan" title="Load Cybersmily / fort JSON">LOAD</button>
+      <button id="btn-sample" data-i18n="header.sample" class="amber" title="Sample datafort">SAMPLE</button>
+      <button id="btn-netmap" data-i18n="header.netmap" class="cyan" title="World netmap" data-i18n="header.netmap">NETMAP</button>
     </div>
     <div class="btn-group" title="Session">
-      <span class="grp-label">Session</span>
-      <button id="btn-save" class="cyan" title="Save game slot">SAVE</button>
-      <button id="btn-loadsave" class="amber" title="Load game slot">LOAD</button>
-      <button id="btn-end" class="red" title="End net turn">END TURN</button>
+      <span class="grp-label" data-i18n="ui.session">Session</span>
+      <button id="btn-save" data-i18n="header.save" class="cyan" title="Save game slot" data-i18n="header.save">SAVE</button>
+      <button id="btn-loadsave" data-i18n="header.load" class="amber" title="Load game slot" data-i18n="header.load">LOAD</button>
+      <button id="btn-end" data-i18n="header.end" class="red" title="End net turn" data-i18n="header.end">END TURN</button>
     </div>
     <div class="btn-group" title="System">
-      <span class="grp-label">Sys</span>
-      <button id="btn-menu" class="amber" title="Return to main menu">MENU</button>
-      <button id="btn-update" class="amber" title="Updates">UPDATE</button>
-      <button id="btn-exit" class="red-exit" title="Quit application">EXIT</button>
+      <span class="grp-label" data-i18n="ui.system">Sys</span>
+      <button id="btn-menu" data-i18n="header.menu" class="amber" title="Return to main menu" data-i18n="header.menu">MENU</button>
+      <button id="btn-settings" class="amber" title="Settings" data-i18n="settings.button">⚙ SETTINGS</button>
+      <button id="btn-update" class="amber" title="Updates" data-i18n="header.update">UPDATE</button>
+    </div><div id="window-controls" aria-label="Window controls">
+      <button type="button" id="win-min" title="Minimize">−</button>
+      <button type="button" id="win-max" title="Maximize">□</button>
+      <button type="button" id="win-close" class="close" title="Close">×</button>
     </div>
   </div>
 </header>
 <aside class="panel" id="left">
-  <h3>NETRUNNER DOSSIER</h3>
+  <h3 data-i18n="profile.dossier">NETRUNNER DOSSIER</h3>
   <div id="dossier">
     <div id="dossier-photo"><canvas id="dossier-canvas" width="72" height="88"></canvas><div class="scan"></div></div>
     <div id="dossier-meta">
@@ -1304,9 +1434,9 @@ header .btns button{ padding:4px 8px; font-size:10px; }
   </div>
   <div id="netmap-overlay">
     <div id="netmap-top">
-      <h2>NETMAP // WORLD GRID</h2>
+      <h2 data-i18n="netmap.title">NETMAP // WORLD GRID</h2>
       <div class="hint">NETSPACE 21×13 · CRT · click LDL · Δ≤ net-move</div>
-      <button class="red" id="netmap-close">CLOSE</button>
+      <button class="red" id="netmap-close" data-i18n="settings.close">CLOSE</button>
     </div>
     <div id="netmap-status"></div>
     <div id="netmap-body">
@@ -1322,7 +1452,7 @@ header .btns button{ padding:4px 8px; font-size:10px; }
           <div><span style="background:#33ccff"></span> you are here</div>
           <div><span style="background:#ffaa33"></span> in range</div>
         </div>
-        <h4>LDL NODES</h4>
+        <h4 data-i18n="netmap.nodes">LDL NODES</h4>
         <div id="netmap-grid"></div>
       </div>
     </div>
@@ -1342,7 +1472,7 @@ header .btns button{ padding:4px 8px; font-size:10px; }
   </div>
 </div>
 <aside class="panel right" id="right">
-  <h3>NET STATUS</h3>
+  <h3 data-i18n="ui.netStatus">NET STATUS</h3>
   <div class="stat-row st-turn-row" style="display:none"><span>TURN</span><b id="st-turn">—</b></div>
   <div class="stat-row"><span>MOVE</span><b id="st-move">5</b></div>
   <div class="stat-row"><span>ACTION</span><b id="st-act">1</b></div>
@@ -1359,10 +1489,11 @@ header .btns button{ padding:4px 8px; font-size:10px; }
     <button id="m-run" class="cyan menu-span" disabled>RUN PROGRAM</button>
     <button id="m-ldl" class="amber">LDL LINK</button>
     <button id="m-jackout" class="amber">LOG OFF</button>
-    <button id="m-copy" disabled>COPY</button>
-    <button id="m-read" disabled>READ</button>
-    <button id="m-erase" class="red" disabled>ERASE</button>
-    <button id="m-end" class="red menu-span">END TURN</button>
+    <button id="m-disconnect" class="red">DISCONNECT</button>
+    <button id="m-copy" data-i18n="ui.copy" disabled>COPY</button>
+    <button id="m-read" data-i18n="ui.read" disabled>READ</button>
+    <button id="m-erase" data-i18n="ui.erase" class="red" disabled>ERASE</button>
+    <button id="m-end" data-i18n="header.end" class="red menu-span">END TURN</button>
   </div>
   <p class="menu-hint" style="color:var(--m);font-size:10px;margin-top:6px;line-height:1.4" title="Intrusion→wall · Decryption→gate · Anti-IC→ICE">
   </p>
@@ -1398,6 +1529,7 @@ header .btns button{ padding:4px 8px; font-size:10px; }
   <div class="net-word" id="idle-net-word">NET</div>
   <div class="sub">SIGNAL IDLE — MOVE TO WAKE</div>
 </div>
+<script src="settings.js"></script>
 <script src="programs.js"></script>
 <script src="profile.js"></script>
 <script src="data.js"></script>

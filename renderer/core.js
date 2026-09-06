@@ -84,7 +84,8 @@ function log(msg,cls=''){
   const nearBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 56;
   el.appendChild(line);
   while(el.children.length > 500) el.removeChild(el.firstChild);
-  if(nearBottom) el.scrollTop = el.scrollHeight;
+  // The terminal log is a live feed: always keep the newest message visible.
+  el.scrollTop = el.scrollHeight;
 }
 function clearNetLog(){
   const el=document.getElementById('log');

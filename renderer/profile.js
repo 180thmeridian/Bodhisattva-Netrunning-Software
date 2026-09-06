@@ -210,13 +210,44 @@ function flashTurnBanner(turn, custom){
 }
 
 
-function showMainMenu(){
+function setupMainMenu(){
+  const bind=(id,fn)=>{ const el=document.getElementById(id); if(el && !el.dataset.bound){ el.dataset.bound='1'; el.addEventListener('click',fn); } };
+  bind('mm-enter', ()=>{
+    // Enter Net always starts from the Sample DataFort as a fresh run.
+    if(typeof loadSampleFort==='function') loadSampleFort();
+    closeNetMap?.();
+    enterNetFromMenu();
+  });
+  bind('mm-continue', ()=>{
+    if(typeof loadSession==='function') loadSession();
+    closeNetMap?.();
+    enterNetFromMenu();
+  });
+  bind('mm-settings', ()=>window.NetrunSettings?.open?.());
+  bind('mm-profiles', ()=>{
+    hideMainMenu();
+    showBootScreen();
+    document.getElementById('boot-create')?.classList.add('hidden');
+    document.getElementById('boot-select')?.classList.remove('hidden');
+    renderProfileCards();
+  });
+  bind('mm-update', ()=>document.getElementById('btn-update')?.click());
+  bind('mm-quit', prepareQuitToNetMap);
+  bind('btn-menu', ()=>showMainMenu({overlay:!!S.fort}));
+}
+
+function showMainMenu(options){
+  options=options||{};
   const mm=document.getElementById('main-menu');
   const shell=document.getElementById('shell');
   const boot=document.getElementById('boot-screen');
+  // The main menu always lives on top of the world NETMAP, never the fort view.
+  if(typeof openNetMap==='function') openNetMap();
+  const overlay=true;
   if(boot){ boot.classList.remove('on'); boot.style.display='none'; }
-  if(shell) shell.style.visibility='hidden';
+  if(shell) shell.style.visibility='visible';
   if(mm){
+    mm.classList.toggle('overlay-mode',overlay);
     mm.classList.add('on');
     const h=document.getElementById('mm-handle');
     const name=(S.profile && S.profile.handle) || (typeof nr==='function' ? nr().name : 'Runner');
@@ -229,46 +260,16 @@ function hideMainMenu(){
 }
 function enterNetFromMenu(){
   hideMainMenu();
+  if(typeof closeNetMap==='function') closeNetMap();
   const shell=document.getElementById('shell');
   if(shell) shell.style.visibility='visible';
   if(typeof log==='function') log('Jacking into the Net…','ok');
   if(typeof aiMsg==='function') aiMsg('SYS', 'Link established. Fort channel open.');
 }
 function returnToMainMenu(){
-  // soft exit from fort UI without killing profile
   hideBootScreen();
-  const shell=document.getElementById('shell');
-  if(shell) shell.style.visibility='hidden';
-  showMainMenu();
+  showMainMenu({overlay:true});
   if(typeof log==='function') log('Returned to main menu.','sys');
-}
-function setupMainMenu(){
-  document.getElementById('mm-enter')?.addEventListener('click', enterNetFromMenu);
-  document.getElementById('mm-continue')?.addEventListener('click', ()=>{
-    enterNetFromMenu();
-    if(typeof promptLoadUI==='function') setTimeout(()=>promptLoadUI(), 50);
-  });
-  document.getElementById('mm-char')?.addEventListener('click', ()=>{
-    if(typeof log==='function') log('Character editor — not online yet.','info');
-    else alert('Character editor — coming in a future update.');
-  });
-  document.getElementById('mm-settings')?.addEventListener('click', ()=>{
-    if(typeof log==='function') log('Settings — not online yet.','info');
-    else alert('Settings — coming in a future update.');
-  });
-  document.getElementById('mm-profiles')?.addEventListener('click', ()=>{
-    hideMainMenu();
-    showBootScreen();
-    renderProfileCards();
-  });
-  document.getElementById('mm-update')?.addEventListener('click', ()=>{
-    document.getElementById('btn-update')?.click();
-  });
-  document.getElementById('mm-quit')?.addEventListener('click', ()=>{
-    if(window.netrunAPI && window.netrunAPI.quitApp) window.netrunAPI.quitApp();
-    else window.close();
-  });
-  document.getElementById('btn-menu')?.addEventListener('click', returnToMainMenu);
 }
 
 function showBootScreen(){
@@ -282,6 +283,24 @@ function hideBootScreen(){
   const shell=document.getElementById('shell');
   if(boot){ boot.classList.remove('on'); boot.style.display='none'; }
   // shell visibility controlled by main menu / enterNet
+}
+
+function prepareQuitToNetMap(){
+  // Before closing, leave the UI on the world netmap and persist the current session.
+  // The next launch will reproduce this state after profile selection, without exposing
+  // the loaded fort between the Matrix boot and the profile gate.
+  try{
+    if(typeof saveSession==='function') saveSession();
+    localStorage.setItem('cp2020.returnToNetMap','1');
+    // Keep the autosave for Continue Session, but clear the live connection for the launch/menu state.
+    S.fort=null; S.grid=null; S.combatActive=false; S.activeDemons=[]; S.demonPlan=null;
+  }catch(_e){}
+  try{
+    hideBootScreen();
+    if(typeof openNetMap==='function') openNetMap();
+    showMainMenu({overlay:true});
+  }catch(_e){}
+  setTimeout(()=>window.netrunAPI?.quitApp?.(),120);
 }
 
 function renderProfileCards(){
@@ -350,7 +369,7 @@ function selectProfile(id){
   setActiveProfileId(id);
   applyProfileToUI(p);
   hideBootScreen();
-  showMainMenu();
+  showMainMenu({overlay:true});
   if(typeof log==='function') log(`Profile locked: ${p.handle} · ${bodyLabel(p.bodyType)} BTM ${p.btm} · ${p.deck?.name||'Deck'}`,'ok');
   if(typeof aiMsg==='function') aiMsg('SYS', `Welcome, ${p.handle}. Interface online.`);
 }
@@ -500,7 +519,8 @@ function setupBootUI(){
   document.getElementById('btn-boot-back')?.addEventListener('click', backToSelect);
   document.getElementById('btn-boot-save')?.addEventListener('click', submitCreateProfile);
   document.getElementById('pf-body')?.addEventListener('change', updateCreateBtm);
-  document.getElementById('btn-boot-import')?.addEventListener('click', ()=>{
+  document.getElementById('boot-settings')?.addEventListener('click', ()=>window.NetrunSettings?.open?.());
+    document.getElementById('btn-boot-import')?.addEventListener('click', ()=>{
     const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
     inp.onchange=async()=>{
       try{
@@ -516,7 +536,12 @@ function setupBootUI(){
 
   bindSteppers(document.getElementById('boot-create'));
   renderProfileCards();
-  // Matrix sequence first, then profile gate
+  // A new application launch is never connected to a fortress. Continue Session is the explicit restore path.
+  try{
+    S.fort=null; S.grid=null; S.combatActive=false;
+    if(S.scene && typeof S.scene.showPlaceholder==='function') S.scene.showPlaceholder();
+  }catch(_e){}
+  // Matrix sequence first, then profile gate. No session/map is loaded before profile selection.
   const boot=document.getElementById('boot-screen');
   if(boot) boot.style.display='none';
   setupMainMenu();
@@ -551,3 +576,4 @@ window.hideBootScreen=hideBootScreen;
 window.selectProfile=selectProfile;
 window.runMatrixBoot=runMatrixBoot;
 window.bindSteppers=bindSteppers;
+window.__prepareForNativeClose=prepareQuitToNetMap;

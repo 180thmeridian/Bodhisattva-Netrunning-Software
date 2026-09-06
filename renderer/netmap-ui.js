@@ -224,17 +224,35 @@ function doRead(){
   if(c.type==='mu'||c.type==='cpu') (S.fort.files||[]).forEach(f=>log(`  · ${f.key||f.name} (${f.value} MU)`,'sys'));
 }
 function doErase(){ if(!spendAction()) return; log('ERASE · buffer wiped.','bad'); }
+function disconnectFromFort(){
+  if(!S.fort){
+    log('No fortress connection is active.','sys');
+    openNetMap();
+    return true;
+  }
+  if(S.jackLocked>0){
+    log(`Cannot disconnect — locked ${S.jackLocked} turn(s).`,'bad');
+    return false;
+  }
+  try{ onHellhoundTrace(); }catch(_e){}
+  if(S.loot?.length) log(`Loot: ${S.loot.map(f=>f.key||f.name).join(', ')}`,'ok');
+  S.fort=null; S.grid=null; S.combatActive=false; S.activeDemons=[]; S.demonPlan=null;
+  S.openGates=new Set(); S.deadIce=new Set(); S.wallStr={}; S.iceStr={};
+  if(typeof updateHUD==='function') updateHUD();
+  if(S.scene && typeof S.scene.showPlaceholder==='function') S.scene.showPlaceholder();
+  if(typeof openNetMap==='function') openNetMap();
+  log('Connection severed. Returned to the world NETMAP.','ok');
+  return true;
+}
 function doJackout(){
+  // Gameplay LOG OFF keeps the CP2020 risk roll. A separate Disconnect action is always available.
+  if(!S.fort){ return disconnectFromFort(); }
   if(S.jackLocked>0){ log(`Cannot LOG OFF — locked ${S.jackLocked} turn(s).`,'bad'); return; }
   const roll=d10(); log(`LOG OFF: d10=${roll} (need ≤8)`,'sys');
-  if(roll<=8){
-    onHellhoundTrace();
-    log('Signal severed. Jacking out.','ok');
-    if(S.loot.length) log(`Loot: ${S.loot.map(f=>f.key||f.name).join(', ')}`,'ok');
-    S.fort=null; S.grid=null; S.combatActive=false; updateHUD();
-    if(S.scene) S.scene.showPlaceholder();
-  } else log('Jackout failed.','bad');
+  if(roll<=8) disconnectFromFort();
+  else log('Jackout failed.','bad');
 }
+window.disconnectFromFort=disconnectFromFort;
 function endTurn(auto){
   if(!S.fort) return;
   if(S._autoTimer){ clearTimeout(S._autoTimer); S._autoTimer=null; }

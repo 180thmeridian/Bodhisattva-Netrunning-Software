@@ -6,6 +6,16 @@ class NetScene extends Phaser.Scene {
     S.scene=this; this.mapRoot=this.add.container(0,0); this.runnerGfx=null;
     this.cameras.main.setBackgroundColor('#010402');
     this.cameras.main.setRoundPixels(true);
+    // Camera rig: keep the camera independent from map rebuilds and smoothly follow the runner.
+    this._cameraInitialized=false;
+    this._cameraMapKey=null;
+    this._cameraUserZoom=false;
+    this._cameraTargetX=0;
+    this._cameraTargetY=0;
+    this._cameraDeadZone=54;
+    this._cameraFollowSpeed=8.5;
+    this._cameraViewportW=0;
+    this._cameraViewportH=0;
     // allow right-drag pan without OS context menu
     if(this.input.mouse) this.input.mouse.disableContextMenu();
     try{
@@ -17,19 +27,26 @@ class NetScene extends Phaser.Scene {
     }catch(_e){}
 
     this.input.on('wheel',(p,o,dx,dy)=>{
-      this.cameras.main.zoom=Phaser.Math.Clamp(this.cameras.main.zoom-dy*0.001,0.5,2.0);
+      const cam=this.cameras.main;
+      cam.zoom=Phaser.Math.Clamp(cam.zoom-dy*0.001,0.5,2.0);
+      this._cameraUserZoom=true;
     });
 
-    if(typeof S.camFree==='undefined') S.camFree=false;
+    // Camera modes: locked follow by default; free-look exists only while RMB is held.
+    S.camFree=false;
     this._camDrag=null;
-
     const startCamDrag=(p)=>{
       S.camFree=true;
-      this._camDrag={
-        x:p.x, y:p.y,
-        cx:this.cameras.main.scrollX,
-        cy:this.cameras.main.scrollY
-      };
+      this._camDrag={x:p.x,y:p.y,cx:this.cameras.main.scrollX,cy:this.cameras.main.scrollY};
+    };
+    const stopCamDrag=()=>{
+      this._camDrag=null;
+      S.camFree=false;
+      // Returning from free-look smoothly re-locks the camera to the runner.
+      if(S.runner){
+        const pos=this.iso(S.runner.x,S.runner.y);
+        this._cameraTargetX=pos.sx; this._cameraTargetY=pos.sy;
+      }
     };
     const applyCamDrag=(p)=>{
       if(!this._camDrag) return;
@@ -37,41 +54,25 @@ class NetScene extends Phaser.Scene {
       this.cameras.main.scrollX=this._camDrag.cx-(p.x-this._camDrag.x)/z;
       this.cameras.main.scrollY=this._camDrag.cy-(p.y-this._camDrag.y)/z;
     };
-
     this.input.on('pointerdown',p=>{
-      // 0=left, 1=middle, 2=right — middle/right always pan; left pans only in free-look
-      if(p.button===1 || p.button===2){
-        startCamDrag(p);
-        return;
-      }
-      if(p.button===0 && S.camFree && !S.demonPlan){
-        startCamDrag(p);
-        return;
-      }
-      // left-click: demon route waypoint
+      // Only RMB provides independent camera movement.
+      if(p.button===2){ startCamDrag(p); return; }
       if(S.demonPlan && p.button===0){
         const wx=p.worldX, wy=p.worldY;
-        let best=null, bestD=1e9;
+        let best=null,bestD=1e9;
         if(S.grid){
-          for(let y=0;y<S.grid.length;y++){
-            for(let x=0;x<(S.grid[0]||[]).length;x++){
-              const sx=(x-y)*(TILE_W/2);
-              const sy=(x+y)*(TILE_H/2);
-              const d=(wx-sx)*(wx-sx)+(wy-sy)*(wy-sy);
-              if(d<bestD){ bestD=d; best={x,y}; }
-            }
+          for(let y=0;y<S.grid.length;y++) for(let x=0;x<(S.grid[0]||[]).length;x++){
+            const sx=(x-y)*(TILE_W/2), sy=(x+y)*(TILE_H/2);
+            const d=(wx-sx)*(wx-sx)+(wy-sy)*(wy-sy);
+            if(d<bestD){bestD=d;best={x,y};}
           }
         }
-        if(best && bestD<50*50) demonPlanAddTile(best.x, best.y);
+        if(best && bestD<50*50) demonPlanAddTile(best.x,best.y);
       }
     });
-    this.input.on('pointermove',p=>{
-      if(!this._camDrag) return;
-      // keep panning while drag active (don't rely on middleButtonDown — Electron often drops it)
-      applyCamDrag(p);
-    });
-    this.input.on('pointerup',()=>{ this._camDrag=null; });
-    this.input.on('pointerupoutside',()=>{ this._camDrag=null; });
+    this.input.on('pointermove',p=>applyCamDrag(p));
+    this.input.on('pointerup',p=>{ if(p.button===2) stopCamDrag(); });
+    this.input.on('pointerupoutside',p=>{ if(!p || p.button===2) stopCamDrag(); });
 
     if(S.fort) this.rebuildMap(); else this.showPlaceholder();
     // ambient data-rain in empty space
@@ -153,6 +154,62 @@ class NetScene extends Phaser.Scene {
       g.lineStyle(1,edge,0.45); g.strokePath();
     }
   }
+  fitMapToViewport(force=false){
+    if(!this.cameras || !this.cameras.main || !S.fort) return;
+    const cam=this.cameras.main;
+    const wrap=document.getElementById('game-wrap');
+    const w=wrap?.clientWidth || this.sys.game.scale.width || 1;
+    const h=wrap?.clientHeight || this.sys.game.scale.height || 1;
+    const cols=Math.max(1, Number(S.fort.columns)||1);
+    const rows=Math.max(1, Number(S.fort.rows)||1);
+    const minX=-(rows-1)*(TILE_W/2);
+    const maxX=(cols-1)*(TILE_W/2);
+    const minY=0;
+    const maxY=(cols+rows-2)*(TILE_H/2);
+    const pad=28;
+    const bw=Math.max(1,maxX-minX+TILE_W+pad*2);
+    const bh=Math.max(1,maxY-minY+TILE_H+pad*2);
+    const fitZoom=Math.max(0.1, Math.min(w/bw, h/bh));
+    const mapKey=`${S.fort.name||''}:${rows}x${cols}`;
+    const viewportChanged=this._cameraViewportW!==w || this._cameraViewportH!==h;
+
+    // Only a new fortress (or an explicit fit) resets the camera. Rebuilding the
+    // map during movement must never snap the viewport back to the map center.
+    // A window resize refits the zoom only while the player has not manually zoomed.
+    const newMap=!this._cameraInitialized || this._cameraMapKey!==mapKey;
+    const needsFit=force || newMap || (viewportChanged && !this._cameraUserZoom);
+    if(needsFit){
+      let keepX,keepY;
+      if(!newMap){
+        keepX=cam.scrollX + cam.width/(2*cam.zoom);
+        keepY=cam.scrollY + cam.height/(2*cam.zoom);
+      }
+      cam.setZoom(fitZoom);
+      if(newMap){
+        cam.centerOn((minX+maxX)/2, (minY+maxY)/2);
+      }else{
+        cam.centerOn(keepX,keepY);
+      }
+      this._cameraTargetX=cam.scrollX + cam.width/(2*cam.zoom);
+      this._cameraTargetY=cam.scrollY + cam.height/(2*cam.zoom);
+      this._cameraInitialized=true;
+      this._cameraMapKey=mapKey;
+      this._cameraUserZoom=false;
+    }
+    this._cameraViewportW=w;
+    this._cameraViewportH=h;
+  }
+  updateCameraFollow(delta){
+    if(!S.fort || !S.runner || S.camFree || !this._cameraInitialized) return;
+    const cam=this.cameras.main;
+    const pos=this.iso(S.runner.x,S.runner.y);
+    const tx=pos.sx, ty=pos.sy;
+    const pull=1-Math.exp(-this._cameraFollowSpeed*Math.max(0,delta));
+    // The camera always follows the runner when not in RMB free-look.
+    this._cameraTargetX += (tx-this._cameraTargetX)*pull;
+    this._cameraTargetY += (ty-this._cameraTargetY)*pull;
+    cam.centerOn(this._cameraTargetX,this._cameraTargetY);
+  }
   rebuildMap(){
     this.mapRoot.removeAll(true);
     if(!S.fort||!S.grid){this.showPlaceholder();return}
@@ -228,7 +285,7 @@ class NetScene extends Phaser.Scene {
       }
     }
     this.drawRunner(); this.drawLotfEntity(); this.drawLotfFlies(); this.drawActiveDemons(); this.drawDemonPlan();
-    if(!S.camFree) this.centerCam(S.runner.x,S.runner.y);
+    this.fitMapToViewport(false);
     this.setupIceHover();
   }
   drawRunner(){
@@ -243,11 +300,24 @@ class NetScene extends Phaser.Scene {
     this.tweens.add({targets:aura,alpha:0.45,duration:650,yoyo:true,repeat:-1});
     this.tweens.add({targets:ring,scaleX:1.25,scaleY:1.25,alpha:0.15,duration:900,yoyo:true,repeat:-1});
   }
-  centerCam(gx,gy){ const {sx,sy}=this.iso(gx,gy); this.cameras.main.centerOn(sx,sy); }
-  /** Re-center on runner and lock follow until next middle-button pan */
+  centerCam(gx,gy){
+    const {sx,sy}=this.iso(gx,gy);
+    this._cameraTargetX=sx; this._cameraTargetY=sy;
+    this.cameras.main.centerOn(sx,sy);
+  }
+  /** Re-center target on runner and resume locked follow. */
   lockCamOnRunner(){
     S.camFree=false;
-    if(S.runner) this.centerCam(S.runner.x,S.runner.y);
+    this._camDrag=null;
+    if(S.runner){
+      const p=this.iso(S.runner.x,S.runner.y);
+      this._cameraTargetX=p.sx; this._cameraTargetY=p.sy;
+      this.cameras.main.centerOn(p.sx,p.sy);
+    }
+  }
+
+  update(time,delta){
+    this.updateCameraFollow((delta||16.67)/1000);
   }
 
   setupIceHover(){
@@ -322,12 +392,48 @@ class NetScene extends Phaser.Scene {
 
 function bootPhaser(){
   const wrap=document.getElementById('game-wrap');
+  if(!wrap) return;
+
+  // The Electron window can change size immediately after the renderer is loaded
+  // (for example when the saved 1920×1200 setting is applied).  Phaser must be
+  // resized after the DOM has reached its final layout, otherwise the first
+  // camera fit can be calculated against the old viewport.  A later OS/window
+  // resize used to hide this bug, which is why Win+Tab/Win+key appeared to fix it.
+  const syncViewport=()=>{
+    const w=Math.max(1,wrap.clientWidth);
+    const h=Math.max(1,wrap.clientHeight);
+    if(S.game){
+      const sw=S.game.scale.width, sh=S.game.scale.height;
+      if(sw!==w || sh!==h) S.game.scale.resize(w,h);
+    }
+    if(S.scene && typeof S.scene.fitMapToViewport==='function'){
+      S.scene.fitMapToViewport(false);
+    }
+  };
+
   S.game=new Phaser.Game({
-    type:Phaser.AUTO, width:wrap.clientWidth, height:wrap.clientHeight,
+    type:Phaser.AUTO, width:Math.max(1,wrap.clientWidth), height:Math.max(1,wrap.clientHeight),
     parent:'phaser-host', backgroundColor:'#010402', scene:[NetScene],
     scale:{mode:Phaser.Scale.NONE}, render:{antialias:true}
   });
-  window.addEventListener('resize',()=>{ if(S.game) S.game.scale.resize(wrap.clientWidth,wrap.clientHeight); });
+
+  // Observe layout changes as well as window resize. This catches Electron's
+  // post-load setSize()/center() and display-mode changes even when Chromium
+  // does not emit a conventional resize event at the exact moment we need it.
+  if(typeof ResizeObserver!=='undefined'){
+    const ro=new ResizeObserver(()=>syncViewport());
+    ro.observe(wrap);
+    S._phaserResizeObserver=ro;
+  }
+  window.addEventListener('resize',syncViewport);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize',syncViewport);
+
+  // Give Electron/Chromium two layout frames to settle after the native window
+  // dimensions are applied. The first real fit is therefore performed using
+  // the actual game field, not the BrowserWindow's initial 1400×900 fallback.
+  const settle=()=>requestAnimationFrame(()=>requestAnimationFrame(syncViewport));
+  settle();
+  setTimeout(syncViewport,120);
 }
 
 window.NetScene = NetScene;

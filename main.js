@@ -279,6 +279,8 @@ function setupAutoUpdater() {
   });
 }
 
+let isQuitting = false;
+
 async function createWindow() {
   const win = new BrowserWindow({
     width: 1400,
@@ -286,6 +288,7 @@ async function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     backgroundColor: '#050805',
+    frame: false,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -295,6 +298,18 @@ async function createWindow() {
     }
   });
   win.once('ready-to-show', () => win.show());
+  win.on('close', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    // Handle Alt+F4 / OS window close the same way as the in-app EXIT button.
+    win.webContents.executeJavaScript(
+      'window.__prepareForNativeClose ? window.__prepareForNativeClose() : null',
+      true
+    ).catch(() => {}).finally(() => {
+      isQuitting = true;
+      win.close();
+    });
+  });
   if (!app.isPackaged && process.env.NETRUN_DEV === '1') {
     win.webContents.openDevTools({ mode: 'detach' });
   }
@@ -305,6 +320,39 @@ async function createWindow() {
 ipcMain.handle('db:load', () => load());
 ipcMain.handle('db:save', (_e, db) => save(db));
 ipcMain.handle('db:path', () => DATA_DIR);
+
+ipcMain.handle('window:setMode', (_event, opts={}) => {
+  const win = BrowserWindow.fromWebContents(_event.sender);
+  if (!win) return { ok:false, error:'Window not found' };
+  try {
+    const mode = ['windowed','borderless','fullscreen'].includes(opts.mode) ? opts.mode : 'windowed';
+    const width = Math.max(800, Math.min(7680, Number(opts.width)||1400));
+    const height = Math.max(600, Math.min(4320, Number(opts.height)||900));
+    if (mode === 'fullscreen') {
+      if (!win.isFullScreen()) win.setFullScreen(true);
+    } else {
+      if (win.isFullScreen()) win.setFullScreen(false);
+      win.setResizable(true);
+      win.setSize(Math.round(width), Math.round(height), true);
+      win.center();
+    }
+    return { ok:true, mode, width:win.getBounds().width, height:win.getBounds().height, fullscreen:win.isFullScreen() };
+  } catch (e) {
+    return { ok:false, error:e.message||String(e) };
+  }
+});
+ipcMain.handle('window:minimize', (_event) => {
+  const win=BrowserWindow.fromWebContents(_event.sender);
+  if(win) win.minimize();
+  return {ok:true};
+});
+ipcMain.handle('window:toggleMaximize', (_event) => {
+  const win=BrowserWindow.fromWebContents(_event.sender);
+  if(!win) return {ok:false};
+  if(win.isMaximized()) win.unmaximize(); else win.maximize();
+  return {ok:true,maximized:win.isMaximized()};
+});
+ipcMain.handle('app:quit', () => { isQuitting = true; app.quit(); return {ok:true}; });
 
 ipcMain.handle('app:version', () => versionInfo());
 

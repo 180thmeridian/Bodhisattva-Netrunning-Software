@@ -38,15 +38,10 @@ function tryMove(dx,dy){
         x:newIso.sx, y:newIso.sy-12,
         duration:120,
         ease:'Cubic.easeOut',
-        onUpdate:()=>{
-          if(!S.camFree && S.scene.runnerGfx){
-            S.scene.cameras.main.centerOn(S.scene.runnerGfx.x, S.scene.runnerGfx.y+12);
-          }
-        },
+        // Camera follow is handled by NetScene.updateCameraFollow(). Do not call
+        // centerOn() from the movement tween: that was the source of the hard snap.
         onComplete:()=>{ S._moving=false; }
       });
-    } else if(!S.camFree){
-      S.scene.centerCam(nx,ny);
     }
   }
   checkDetection();
