@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>CP2020 NETRUN // ISO 1.6.50</title>
+<title>CP2020 NETRUN // ISO 1.6.51</title>
 <script src="phaser.min.js"></script>
 <style>
 :root {
@@ -989,6 +989,68 @@ html.theme-toxic{
   --w:#e8f8c8; --m:#6a7a40;
 }
 
+
+/* ===== Main menu ===== */
+#main-menu{
+  display:none; position:fixed; inset:0; z-index:9000;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 30%, rgba(20,60,35,.35), transparent 70%),
+    linear-gradient(180deg, #020806 0%, #010402 100%);
+  align-items:center; justify-content:center; flex-direction:column;
+  font-family:"Courier New",monospace;
+}
+#main-menu.on{ display:flex; }
+#main-menu .mm-logo{
+  color:var(--g); font-size:28px; letter-spacing:6px; font-weight:bold;
+  text-shadow:0 0 12px rgba(51,255,102,.45), 0 0 28px rgba(51,255,102,.2);
+  margin-bottom:6px;
+}
+#main-menu .mm-sub{ color:var(--m); font-size:12px; letter-spacing:3px; margin-bottom:8px; }
+#main-menu .mm-handle{
+  color:var(--c); font-size:13px; letter-spacing:2px; margin-bottom:22px;
+  min-height:18px;
+}
+#main-menu .mm-panel{
+  width:min(360px,92vw); border:1px solid var(--border); background:rgba(4,12,8,.92);
+  padding:18px 20px; box-shadow:0 0 40px rgba(51,255,102,.08), inset 0 0 30px rgba(0,20,10,.4);
+  display:flex; flex-direction:column; gap:8px;
+}
+#main-menu .mm-btn{
+  width:100%; text-align:left; padding:10px 14px; letter-spacing:2px;
+  background:#0a1a10; border:1px solid var(--border); color:var(--g);
+  cursor:pointer; font-family:inherit; font-size:12px; text-transform:uppercase;
+  display:flex; justify-content:space-between; align-items:center;
+}
+#main-menu .mm-btn:hover{ border-color:var(--g); box-shadow:0 0 12px rgba(51,255,102,.2); }
+#main-menu .mm-btn.cyan{ color:var(--c); border-color:#104050; }
+#main-menu .mm-btn.cyan:hover{ border-color:var(--c); box-shadow:0 0 12px rgba(51,204,255,.2); }
+#main-menu .mm-btn.amber{ color:var(--a); border-color:#4a3010; }
+#main-menu .mm-btn.amber:hover{ border-color:var(--a); }
+#main-menu .mm-btn.red{ color:var(--r); border-color:#401018; }
+#main-menu .mm-btn:disabled, #main-menu .mm-btn.stub{
+  opacity:.55; cursor:not-allowed;
+}
+#main-menu .mm-btn .tag{ font-size:9px; color:var(--m); letter-spacing:1px; }
+#main-menu .mm-foot{ margin-top:16px; color:var(--m); font-size:10px; letter-spacing:1px; }
+
+/* Header button groups */
+header{ gap:10px; flex-wrap:nowrap; }
+header .btns{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+header .btn-group{
+  display:flex; gap:4px; align-items:center;
+  padding:2px 6px; border:1px solid rgba(26,58,36,.55); border-radius:2px;
+  background:rgba(4,12,8,.45);
+}
+header .btn-group .grp-label{
+  font-size:8px; color:var(--m); letter-spacing:1px; margin-right:2px; text-transform:uppercase;
+}
+header .btns button{ padding:4px 8px; font-size:10px; }
+.menu-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:6px;
+}
+.menu-grid button{ width:100%; }
+.menu-grid .menu-span{ grid-column:1 / -1; }
+
 </style>
 </head>
 <body>
@@ -1099,21 +1161,48 @@ html.theme-toxic{
   </div>
 </div>
 
+
+<div id="main-menu">
+  <div class="mm-logo">NETRUN TERMINAL</div>
+  <div class="mm-sub">CYBERPUNK 2020 · INTERFACE GATE</div>
+  <div class="mm-handle" id="mm-handle">—</div>
+  <div class="mm-panel">
+    <button type="button" class="mm-btn cyan" id="mm-enter">ENTER NET <span class="tag">RUN</span></button>
+    <button type="button" class="mm-btn amber" id="mm-continue">CONTINUE SESSION <span class="tag">SAVE</span></button>
+    <button type="button" class="mm-btn stub" id="mm-char" disabled>CHARACTER <span class="tag">SOON</span></button>
+    <button type="button" class="mm-btn stub" id="mm-settings" disabled>SETTINGS <span class="tag">SOON</span></button>
+    <button type="button" class="mm-btn" id="mm-profiles">PROFILES <span class="tag">SWITCH</span></button>
+    <button type="button" class="mm-btn" id="mm-update">UPDATE <span class="tag">PATCH</span></button>
+    <button type="button" class="mm-btn red" id="mm-quit">QUIT <span class="tag">EXIT</span></button>
+  </div>
+  <div class="mm-foot">v1.6.51 · WASD move · R run · T end turn · C camera lock</div>
+</div>
+
 <div id="shell">
 <header>
-  <div class="title">NETRUN TERMINAL // ISO 1.6.50</div>
-  <div class="ver">Cyberpunk 2020 · 5 spaces + 1 Menu action · STR+1d10</div>
+  <div class="title">NETRUN TERMINAL // ISO 1.6.51</div>
+  <div class="ver">CP2020 · 5 move + 1 action</div>
   <div id="hdr-loc" title="LDL location">—</div>
   <div id="net-clock" title="Net-time · +1s per completed turn">2032-08-01 · 00:00:00</div>
   <div class="btns">
-    <button id="btn-load" class="cyan">LOAD JSON</button>
-    <button id="btn-netmap" class="cyan">NETMAP</button>
-    <button id="btn-sample" class="amber">SAMPLE FORT</button>
-    <button id="btn-end" class="red">END TURN</button>
-    <button id="btn-save" class="cyan" title="Save game slot">SAVE</button>
-    <button id="btn-loadsave" class="amber" title="Load game slot">LOAD SAVE</button>
-    <button id="btn-update" class="amber" title="Check GitHub update / install offline .zip">UPDATE</button>
-    <button id="btn-exit" class="red-exit" title="Quit">EXIT</button>
+    <div class="btn-group" title="Datafort">
+      <span class="grp-label">Fort</span>
+      <button id="btn-load" class="cyan" title="Load Cybersmily / fort JSON">LOAD</button>
+      <button id="btn-sample" class="amber" title="Sample datafort">SAMPLE</button>
+      <button id="btn-netmap" class="cyan" title="World netmap">NETMAP</button>
+    </div>
+    <div class="btn-group" title="Session">
+      <span class="grp-label">Session</span>
+      <button id="btn-save" class="cyan" title="Save game slot">SAVE</button>
+      <button id="btn-loadsave" class="amber" title="Load game slot">LOAD</button>
+      <button id="btn-end" class="red" title="End net turn">END TURN</button>
+    </div>
+    <div class="btn-group" title="System">
+      <span class="grp-label">Sys</span>
+      <button id="btn-menu" class="amber" title="Return to main menu">MENU</button>
+      <button id="btn-update" class="amber" title="Updates">UPDATE</button>
+      <button id="btn-exit" class="red-exit" title="Quit application">EXIT</button>
+    </div>
   </div>
 </header>
 <aside class="panel" id="left">
@@ -1267,13 +1356,13 @@ html.theme-toxic{
   <div id="init-box">Initiative at combat start.<br/>Runner: <b>REF + Speed + 1d10</b><br/>System: <b>INT + 1d10</b></div>
   <h3>MENU</h3>
   <div class="menu-grid">
+    <button id="m-run" class="cyan menu-span" disabled>RUN PROGRAM</button>
     <button id="m-ldl" class="amber">LDL LINK</button>
-    <button id="m-run" class="cyan" disabled>RUN PROGRAM</button>
+    <button id="m-jackout" class="amber">LOG OFF</button>
     <button id="m-copy" disabled>COPY</button>
     <button id="m-read" disabled>READ</button>
     <button id="m-erase" class="red" disabled>ERASE</button>
-    <button id="m-jackout" class="amber">LOG OFF</button>
-    <button id="m-end" class="red">END TURN</button>
+    <button id="m-end" class="red menu-span">END TURN</button>
   </div>
   <p class="menu-hint" style="color:var(--m);font-size:10px;margin-top:6px;line-height:1.4" title="Intrusion→wall · Decryption→gate · Anti-IC→ICE">
   </p>
@@ -1297,7 +1386,7 @@ html.theme-toxic{
   <span><kbd>R</kbd> run</span>
   <span><kbd>T</kbd> end</span>
   <span><kbd>L</kbd> load</span>
-  <span style="margin-left:auto;color:var(--gd)">v1.6.35</span>
+  <span style="margin-left:auto;color:var(--gd)">v1.6.51</span>
 </footer>
 </div>
 <div id="hud-flash" aria-hidden="true"></div>

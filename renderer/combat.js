@@ -6,7 +6,7 @@ function tryMove(dx,dy){
   const tr=screenDirToLogical(dx,dy); dx=tr.dx; dy=tr.dy;
   if(S.flatlined){log('FLATLINED — no signal.','bad');return}
   if(S.stunned){log('Stunned — make recovery save next turn.','bad');return}
-  if(S.wounds>=17||(S.intDmg>=nr().int||nr().int<=0)){log('Incapacitated.','bad');return}
+  if(S.wounds>=17||nr().int<=0){log('Incapacitated.','bad');return}
   if(S.moveLeft<=0){log('No movement left (max 5 spaces/turn).','bad');return}
   const ox=S.runner.x, oy=S.runner.y;
   const nx=S.runner.x+dx, ny=S.runner.y+dy;

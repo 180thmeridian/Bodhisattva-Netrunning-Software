@@ -171,16 +171,17 @@ function updateRunnerBars(){
 function updateNeuralMap(){
   const w = S.wounds|0;
   const intD = S.intDmg|0;
-  const maxInt = (typeof nr==='function' ? nr().int : 8) || 8;
+  const curInt = (typeof nr==='function' ? nr().int : 8)|0;
+  const fried = curInt<=0;
   const status = document.getElementById('nm-status');
   if(status){
-    if(intD >= maxInt) status.textContent = 'FOREBRAIN FRIED';
+    if(fried) status.textContent = 'FOREBRAIN FRIED';
     else if(w >= 13) status.textContent = 'MORTAL';
     else if(w >= 9) status.textContent = 'CRITICAL';
     else if(w >= 5) status.textContent = 'SERIOUS';
     else if(w > 0 || intD > 0) status.textContent = 'COMPROMISED';
     else status.textContent = 'NOMINAL';
-    status.style.color = (w>=9 || intD>=maxInt) ? 'var(--r)' : (w>=5 || intD>0) ? 'var(--a)' : 'var(--m)';
+    status.style.color = (w>=9 || fried) ? 'var(--r)' : (w>=5 || intD>0) ? 'var(--a)' : 'var(--m)';
   }
   function setRegion(id, severity){
     const el = document.getElementById(id);
@@ -203,8 +204,8 @@ function updateNeuralMap(){
 
   // INT trauma on frontal
   const frontal = document.getElementById('nm-frontal');
-  if(frontal && intD > 0){
-    if(intD >= maxInt){
+  if(frontal && (intD > 0 || fried)){
+    if(fried){
       frontal.classList.remove('light','serious','critical','mortal');
       frontal.classList.add('int-fried');
     } else {

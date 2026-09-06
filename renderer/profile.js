@@ -209,6 +209,68 @@ function flashTurnBanner(turn, custom){
   }
 }
 
+
+function showMainMenu(){
+  const mm=document.getElementById('main-menu');
+  const shell=document.getElementById('shell');
+  const boot=document.getElementById('boot-screen');
+  if(boot){ boot.classList.remove('on'); boot.style.display='none'; }
+  if(shell) shell.style.visibility='hidden';
+  if(mm){
+    mm.classList.add('on');
+    const h=document.getElementById('mm-handle');
+    const name=(S.profile && S.profile.handle) || (typeof nr==='function' ? nr().name : 'Runner');
+    if(h) h.textContent = 'OPERATOR · ' + String(name).toUpperCase();
+  }
+}
+function hideMainMenu(){
+  const mm=document.getElementById('main-menu');
+  if(mm) mm.classList.remove('on');
+}
+function enterNetFromMenu(){
+  hideMainMenu();
+  const shell=document.getElementById('shell');
+  if(shell) shell.style.visibility='visible';
+  if(typeof log==='function') log('Jacking into the Net…','ok');
+  if(typeof aiMsg==='function') aiMsg('SYS', 'Link established. Fort channel open.');
+}
+function returnToMainMenu(){
+  // soft exit from fort UI without killing profile
+  hideBootScreen();
+  const shell=document.getElementById('shell');
+  if(shell) shell.style.visibility='hidden';
+  showMainMenu();
+  if(typeof log==='function') log('Returned to main menu.','sys');
+}
+function setupMainMenu(){
+  document.getElementById('mm-enter')?.addEventListener('click', enterNetFromMenu);
+  document.getElementById('mm-continue')?.addEventListener('click', ()=>{
+    enterNetFromMenu();
+    if(typeof promptLoadUI==='function') setTimeout(()=>promptLoadUI(), 50);
+  });
+  document.getElementById('mm-char')?.addEventListener('click', ()=>{
+    if(typeof log==='function') log('Character editor — not online yet.','info');
+    else alert('Character editor — coming in a future update.');
+  });
+  document.getElementById('mm-settings')?.addEventListener('click', ()=>{
+    if(typeof log==='function') log('Settings — not online yet.','info');
+    else alert('Settings — coming in a future update.');
+  });
+  document.getElementById('mm-profiles')?.addEventListener('click', ()=>{
+    hideMainMenu();
+    showBootScreen();
+    renderProfileCards();
+  });
+  document.getElementById('mm-update')?.addEventListener('click', ()=>{
+    document.getElementById('btn-update')?.click();
+  });
+  document.getElementById('mm-quit')?.addEventListener('click', ()=>{
+    if(window.netrunAPI && window.netrunAPI.quitApp) window.netrunAPI.quitApp();
+    else window.close();
+  });
+  document.getElementById('btn-menu')?.addEventListener('click', returnToMainMenu);
+}
+
 function showBootScreen(){
   const boot=document.getElementById('boot-screen');
   const shell=document.getElementById('shell');
@@ -219,7 +281,7 @@ function hideBootScreen(){
   const boot=document.getElementById('boot-screen');
   const shell=document.getElementById('shell');
   if(boot){ boot.classList.remove('on'); boot.style.display='none'; }
-  if(shell) shell.style.visibility='visible';
+  // shell visibility controlled by main menu / enterNet
 }
 
 function renderProfileCards(){
@@ -288,6 +350,7 @@ function selectProfile(id){
   setActiveProfileId(id);
   applyProfileToUI(p);
   hideBootScreen();
+  showMainMenu();
   if(typeof log==='function') log(`Profile locked: ${p.handle} · ${bodyLabel(p.bodyType)} BTM ${p.btm} · ${p.deck?.name||'Deck'}`,'ok');
   if(typeof aiMsg==='function') aiMsg('SYS', `Welcome, ${p.handle}. Interface online.`);
 }
@@ -456,6 +519,7 @@ function setupBootUI(){
   // Matrix sequence first, then profile gate
   const boot=document.getElementById('boot-screen');
   if(boot) boot.style.display='none';
+  setupMainMenu();
   runMatrixBoot(()=>{
     showBootScreen();
   });
@@ -477,6 +541,9 @@ window.applyProfileToUI=applyProfileToUI;
 window.triggerFlatlineSequence=triggerFlatlineSequence;
 window.flashTurnBanner=flashTurnBanner;
 window.markActiveProfileDead=markActiveProfileDead;
+window.showMainMenu=showMainMenu;
+window.returnToMainMenu=returnToMainMenu;
+window.enterNetFromMenu=enterNetFromMenu;
 window.exportProfile=exportProfile;
 window.setupBootUI=setupBootUI;
 window.showBootScreen=showBootScreen;
