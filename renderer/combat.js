@@ -132,18 +132,129 @@ function hydrateProgram(p){
   return p;
 }
 
-function runSelectedProgram(){
+function targetTypeLabel(c){
+  if(!c) return '—';
+  return ({wall:'DATAWALL',gate:'CODEGATE','gate-open':'CODEGATE (OPEN)',ice:'ICE',cpu:'CPU NODE',mu:'MU NODE',remote:'REMOTE'})[c.type] || String(c.type||'CELL').toUpperCase();
+}
+function targetCellLabel(c,x,y){
+  if(!c) return 'EMPTY CELL';
+  if(c.type==='wall') return `DATAWALL · STR ${c.str ?? '—'}`;
+  if(c.type==='gate'||c.type==='gate-open') return `CODEGATE · STR ${c.str ?? '—'}`;
+  if(c.type==='ice') return `${c.name||'ICE'} · STR ${c.str ?? '—'}`;
+  return targetTypeLabel(c);
+}
+function updateTargetModeUI(x=null,y=null,valid=null){
+  const root=document.getElementById('target-mode');
+  if(!root) return;
+  if(!S.programTarget){ root.classList.remove('on'); return; }
+  root.classList.add('on');
+  const p=S.programs[S.programTarget.progIdx];
+  const title=document.getElementById('target-title');
+  const sub=document.getElementById('target-sub');
+  const count=document.getElementById('target-count');
+  const pn=document.getElementById('target-program');
+  const typ=document.getElementById('target-type');
+  const coord=document.getElementById('target-coord');
+  const str=document.getElementById('target-str');
+  const status=document.getElementById('target-status');
+  if(title) title.textContent=`TARGET MODE · ${p?.name||'PROGRAM'}`;
+  if(sub) sub.textContent='Select one of the highlighted cells on the DataFort map.';
+  let n=0;
+  if(S.fort && typeof targetCellAllowed==='function'){
+    for(let yy=0;yy<S.fort.rows;yy++) for(let xx=0;xx<S.fort.columns;xx++) if(targetCellAllowed(p,xx,yy)) n++;
+  }
+  if(count) count.textContent=`${n} VALID TARGET${n===1?'':'S'}`;
+  if(pn) pn.textContent=p?.name||'—';
+  const c=(x!=null&&y!=null)?cellAt(x,y):null;
+  if(typ) typ.textContent=c?targetTypeLabel(c):'—';
+  if(coord) coord.textContent=c?`(${x},${y})`:'—';
+  if(str) str.textContent=c?.str!=null?String(c.str):'—';
+  if(status){
+    if(x==null||y==null) status.textContent='Move the pointer over a highlighted cell.';
+    else if(valid) status.textContent=`READY · ${targetCellLabel(c,x,y)} · LMB to execute.`;
+    else status.textContent='INVALID TARGET · choose a highlighted cell.';
+  }
+}
+function programNeedsTarget(prog){
+  if(!prog) return false;
+  const cls=String(prog.cls||'').toLowerCase();
+  if(/intrusion|decryption|anti-ic|anti-personnel/.test(cls)) return true;
+  if(cls==='multi' && /omnivore|wolfpack|lightning bug|black sky/i.test(prog.name||'')) return true;
+  return false;
+}
+function beginProgramTargeting(progIdx){
+  const p=S.programs[progIdx];
+  if(!S.fort||!p) return false;
+  if(S.actionLeft<=0){ log('No Menu actions left — targeting not started.','bad'); return false; }
+  S.programTarget={progIdx, x:null, y:null};
+  if(S.scene&&typeof S.scene.drawProgramTarget==='function') S.scene.drawProgramTarget();
+  const runBtn=document.getElementById('m-run'); if(runBtn){ runBtn.textContent='SELECT TARGET…'; runBtn.classList.add('targeting'); }
+  updateTargetModeUI();
+  if(S.scene?.setTargetCursor) S.scene.setTargetCursor(true);
+  log(`TARGET MODE · ${p.name} — choose a highlighted target.`,'info');
+  log('  LMB select · ESC cancel · RMB move camera. No action is spent until confirmed.','sys');
+  return true;
+}
+function cancelProgramTarget(){
+  if(!S.programTarget) return false;
+  S.programTarget=null;
+  const runBtn=document.getElementById('m-run'); if(runBtn){ runBtn.textContent='RUN PROGRAM'; runBtn.classList.remove('targeting'); }
+  if(S.scene&&typeof S.scene.drawProgramTarget==='function') S.scene.drawProgramTarget();
+  if(S.scene?.setTargetCursor) S.scene.setTargetCursor(false);
+  updateTargetModeUI();
+  log('Program targeting cancelled.','sys');
+  return true;
+}
+function targetCellAllowed(prog,x,y){
+  const c=cellAt(x,y); if(!c) return false;
+  const dist=Math.abs(x-S.runner.x)+Math.abs(y-S.runner.y);
+  if(dist!==1) return false;
+  const cls=String(prog?.cls||'').toLowerCase();
+  if(cls==='intrusion') return c.type==='wall';
+  if(cls==='decryption') return c.type==='gate';
+  if(cls==='anti-ic'||cls==='anti-personnel') return c.type==='ice';
+  if(cls==='multi') return c.type==='ice';
+  return false;
+}
+function confirmProgramTarget(x,y){
+  const mode=S.programTarget; if(!mode) return false;
+  const p=S.programs[mode.progIdx];
+  if(!p){ cancelProgramTarget(); return false; }
+  const valid=targetCellAllowed(p,x,y);
+  if(!valid){
+    log(`Invalid target (${x},${y}) — choose a highlighted compatible cell.`,'bad');
+    if(S.scene&&typeof S.scene.drawProgramTarget==='function') S.scene.drawProgramTarget(x,y,false);
+    updateTargetModeUI(x,y,false);
+    return false;
+  }
+  mode.x=x; mode.y=y;
+  updateTargetModeUI(x,y,true);
+  S.selectedProg=mode.progIdx;
+  S.programTarget=null;
+  const runBtn=document.getElementById('m-run'); if(runBtn){ runBtn.textContent='RUN PROGRAM'; runBtn.classList.remove('targeting'); }
+  if(S.scene&&typeof S.scene.drawProgramTarget==='function') S.scene.drawProgramTarget();
+  if(S.scene?.setTargetCursor) S.scene.setTargetCursor(false);
+  updateTargetModeUI();
+  if(typeof renderPrograms==='function') renderPrograms();
+  log(`TARGET LOCKED · ${p.name} → ${targetCellLabel(cellAt(x,y),x,y)} @ (${x},${y})`,'ok');
+  return runSelectedProgram({x,y});
+}
+function runSelectedProgram(target){
   if(!S.fort) return;
-  if(!spendAction()) return;
   let prog=S.programs[S.selectedProg];
   if(!prog){log('No program selected.','bad');return}
   prog = hydrateProgram(prog);
   S.programs[S.selectedProg] = prog;
+  if(programNeedsTarget(prog) && !target){
+    beginProgramTargeting(S.selectedProg);
+    return;
+  }
+  if(target && !targetCellAllowed(prog,target.x,target.y)){
+    log('Invalid program target.','bad'); return;
+  }
+  if(!spendAction()) return;
   // CP2020: Demon shell deploys as autonomous agent — plot route first
   if(typeof isDemon==='function' && isDemon(prog)){
-    // refund menu action; planning is free, confirm spends later if desired
-    S.actionLeft = 1;
-    updateHUD();
     if(typeof beginDemonPlan==='function') beginDemonPlan(S.selectedProg);
     return;
   } else {
@@ -152,9 +263,10 @@ function runSelectedProgram(){
   const deckProgRef = prog; // for One-Use consumption
   try {
   const adj=neighbors4(S.runner.x,S.runner.y);
-  const walls=adj.filter(o=>o.c.type==='wall');
-  const gates=adj.filter(o=>o.c.type==='gate');
-  const ice=adj.filter(o=>o.c.type==='ice');
+  const selectedTarget = target ? {x:Number(target.x),y:Number(target.y),c:cellAt(Number(target.x),Number(target.y))} : null;
+  const walls=selectedTarget ? (selectedTarget.c?.type==='wall'?[selectedTarget]:[]) : adj.filter(o=>o.c.type==='wall');
+  const gates=selectedTarget ? (selectedTarget.c?.type==='gate'?[selectedTarget]:[]) : adj.filter(o=>o.c.type==='gate');
+  const ice=selectedTarget ? (selectedTarget.c?.type==='ice'?[selectedTarget]:[]) : adj.filter(o=>o.c.type==='ice');
   const here=cellAt(S.runner.x,S.runner.y);
   // UI pulse on selected program row
   try{
@@ -929,3 +1041,5 @@ window.iceCounter = iceCounter;
 window.iceCounterApplyAntiPerson = iceCounterApplyAntiPerson;
 window.iceCounterBlackIceQTE = iceCounterBlackIceQTE; window.iceCanChase = iceCanChase;
 window.iceHomeKey = iceHomeKey; window.systemPhase = systemPhase;
+
+window.programNeedsTarget=programNeedsTarget; window.beginProgramTargeting=beginProgramTargeting; window.cancelProgramTarget=cancelProgramTarget; window.confirmProgramTarget=confirmProgramTarget; window.targetCellAllowed=targetCellAllowed;

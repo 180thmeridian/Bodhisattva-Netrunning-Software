@@ -35,12 +35,14 @@ class NetScene extends Phaser.Scene {
     // Camera modes: locked follow by default; free-look exists only while RMB is held.
     S.camFree=false;
     this._camDrag=null;
+    this._targetHover=null;
     const startCamDrag=(p)=>{
       S.camFree=true;
       this._camDrag={x:p.x,y:p.y,cx:this.cameras.main.scrollX,cy:this.cameras.main.scrollY};
     };
     const stopCamDrag=()=>{
       this._camDrag=null;
+    this._targetHover=null;
       S.camFree=false;
       // Returning from free-look smoothly re-locks the camera to the runner.
       if(S.runner){
@@ -57,6 +59,11 @@ class NetScene extends Phaser.Scene {
     this.input.on('pointerdown',p=>{
       // Only RMB provides independent camera movement.
       if(p.button===2){ startCamDrag(p); return; }
+      if(S.programTarget && p.button===0){
+        const hit=this.gridHitTest(p);
+        if(hit && typeof confirmProgramTarget==='function') confirmProgramTarget(hit.x,hit.y);
+        return;
+      }
       if(S.demonPlan && p.button===0){
         const wx=p.worldX, wy=p.worldY;
         let best=null,bestD=1e9;
@@ -284,7 +291,7 @@ class NetScene extends Phaser.Scene {
         this.mapRoot.add(stt);
       }
     }
-    this.drawRunner(); this.drawLotfEntity(); this.drawLotfFlies(); this.drawActiveDemons(); this.drawDemonPlan();
+    this.drawRunner(); this.drawLotfEntity(); this.drawLotfFlies(); this.drawActiveDemons(); this.drawDemonPlan(); this.drawProgramTarget();
     this.fitMapToViewport(false);
     this.setupIceHover();
   }
@@ -309,6 +316,7 @@ class NetScene extends Phaser.Scene {
   lockCamOnRunner(){
     S.camFree=false;
     this._camDrag=null;
+    this._targetHover=null;
     if(S.runner){
       const p=this.iso(S.runner.x,S.runner.y);
       this._cameraTargetX=p.sx; this._cameraTargetY=p.sy;
@@ -320,11 +328,62 @@ class NetScene extends Phaser.Scene {
     this.updateCameraFollow((delta||16.67)/1000);
   }
 
+  gridHitTest(pointer){
+    if(!S.fort||!S.grid) return null;
+    const wx=pointer.worldX, wy=pointer.worldY;
+    let best=null, bestD=Infinity;
+    for(let y=0;y<S.fort.rows;y++) for(let x=0;x<S.fort.columns;x++){
+      const pos=this.iso(x,y);
+      const d=(wx-pos.sx)*(wx-pos.sx)+(wy-pos.sy)*(wy-pos.sy);
+      if(d<bestD){ bestD=d; best={x,y}; }
+    }
+    return best && bestD<=30*30 ? best : null;
+  }
+  drawProgramTarget(badX,badY,good=true){
+    if(this._programTargetGfx){ this._programTargetGfx.destroy(); this._programTargetGfx=null; }
+    if(!S.fort||!S.grid||!S.programTarget) return;
+    const g=this.add.graphics(); this.mapRoot.add(g); this._programTargetGfx=g;
+    const prog=S.programs[S.programTarget.progIdx];
+    if(!prog) return;
+    const diamond=(x,y,color,alpha,width,fillAlpha=0)=>{
+      const {sx,sy}=this.iso(x,y);
+      const pts=[{x:sx,y:sy-TILE_H/2-4},{x:sx+TILE_W/2+4,y:sy},{x:sx,y:sy+TILE_H/2+4},{x:sx-TILE_W/2-4,y:sy}];
+      if(fillAlpha>0){ g.fillStyle(color,fillAlpha); g.beginPath(); g.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) g.lineTo(pts[i].x,pts[i].y); g.closePath(); g.fillPath(); }
+      g.lineStyle(width,color,alpha); g.beginPath(); g.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) g.lineTo(pts[i].x,pts[i].y); g.closePath(); g.strokePath();
+    };
+    let validCount=0;
+    for(let y=0;y<S.fort.rows;y++) for(let x=0;x<S.fort.columns;x++){
+      if(typeof targetCellAllowed==='function' && targetCellAllowed(prog,x,y)){
+        validCount++;
+        const hovered=(badX===x&&badY===y&&good);
+        diamond(x,y,hovered?0xffaa33:0x33ccff,hovered?1:0.9,hovered?3:2,hovered?0.16:0.07);
+      }
+    }
+    if(badX!=null&&badY!=null&&!good) diamond(badX,badY,0xff3355,0.95,3,0.10);
+    if(typeof updateTargetModeUI==='function' && badX==null) updateTargetModeUI();
+  }
+
+  setTargetCursor(on){
+    this._targetHover=null;
+    try{ this.game.canvas.style.cursor=on?'crosshair':'default'; }catch(_e){}
+    if(!on && typeof updateTargetModeUI==='function') updateTargetModeUI();
+  }
+
   setupIceHover(){
     // pointer hover over ICE / gates / walls for lore tips
     this.input.off('pointermove', this._tipMove);
     this._tipMove = (pointer)=>{
       if(!S.fort||!S.grid){ tipHide(); return; }
+      if(S.programTarget){
+        const hit=this.gridHitTest(pointer);
+        const prog=S.programs[S.programTarget.progIdx];
+        const valid=!!(hit && prog && typeof targetCellAllowed==='function' && targetCellAllowed(prog,hit.x,hit.y));
+        this._targetHover=hit || null;
+        this.game.canvas.style.cursor=valid?'crosshair':'not-allowed';
+        if(typeof updateTargetModeUI==='function') updateTargetModeUI(hit?.x ?? null, hit?.y ?? null, valid);
+        this.drawProgramTarget(hit?.x ?? null,hit?.y ?? null,valid);
+        tipHide(); return;
+      }
       // invert screen to rough grid via scanning nearest tile
       let best=null, bestD=1e9;
       const cam=this.cameras.main;

@@ -146,8 +146,8 @@ function doLdlLink(){
     if(!spendAction()) return;
   } else if(!S.fort){
     // world mode: consume as menu-like once per turn via actionLeft if we track it
-    if(S.actionLeft<=0){ log('No Menu action left.','bad'); return; }
-    S.actionLeft=0;
+    if(S.actionLeft<=0){ log('No Menu actions left.','bad'); return; }
+    S.actionLeft=Math.max(0,S.actionLeft-1);
   }
   const cur=currentLdl();
   if(!cur){ log('No LDL underfoot.','bad'); return; }

@@ -42,6 +42,7 @@ function captureSaveSnapshot(label){
     turn: S.turn|0,
     moveLeft: S.moveLeft,
     actionLeft: S.actionLeft,
+    actionMax: S.actionMax,
     alarm: S.alarm|0,
     wounds: S.wounds|0,
     intDmg: S.intDmg|0,
@@ -129,7 +130,8 @@ function applySaveSnapshot(snap){
     S.runner = snap.runner || {x:0,y:0};
     S.turn = snap.turn|0;
     S.moveLeft = snap.moveLeft!=null ? snap.moveLeft : 5;
-    S.actionLeft = snap.actionLeft!=null ? snap.actionLeft : 1;
+    S.actionMax = snap.actionMax!=null ? snap.actionMax : (typeof actionCapacity==='function'?actionCapacity():1);
+    S.actionLeft = snap.actionLeft!=null ? Math.min(snap.actionLeft,S.actionMax) : S.actionMax;
     S.alarm = snap.alarm|0;
     S.wounds = snap.wounds|0;
     S.intDmg = snap.intDmg|0;

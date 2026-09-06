@@ -438,7 +438,7 @@ ipcMain.handle('file:openJson', async () => {
   });
   if (result.canceled || !result.filePaths.length) return null;
   try {
-    const raw = fs.readFileSync(result.filePaths[0], 'utf8');
+    const raw = fs.readFileSync(result.filePaths[0], 'utf8').replace(/^\uFEFF/, '');
     return { path: result.filePaths[0], data: JSON.parse(raw) };
   } catch (e) {
     dialog.showErrorBox('Load failed', e.message);

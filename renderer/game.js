@@ -3,13 +3,18 @@
   // Drop zone
   const wrapEl=document.getElementById('game-wrap');
   const hint=document.getElementById('drop-hint');
+  async function importFortFile(file){
+    if(!file) return false;
+    if(typeof window.importFortFile==='function') return window.importFortFile(file);
+    log('DataFort importer is not initialized yet.','bad');
+    return false;
+  }
   if(wrapEl && hint){
     wrapEl.addEventListener('dragover',e=>{e.preventDefault();hint.classList.add('show')});
     wrapEl.addEventListener('dragleave',()=>hint.classList.remove('show'));
     wrapEl.addEventListener('drop',async e=>{
       e.preventDefault(); hint.classList.remove('show');
-      try{ loadFort(JSON.parse(await e.dataTransfer.files[0].text())); }
-      catch(err){ log('Drop failed: '+err.message,'bad'); }
+      await importFortFile(e.dataTransfer.files && e.dataTransfer.files[0]);
     });
   }
 
@@ -18,6 +23,7 @@
     if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
     const k=e.key.toLowerCase();
     if(e.key==='Escape'){
+      if(S.programTarget && typeof cancelProgramTarget==='function'){ e.preventDefault(); cancelProgramTarget(); return; }
       const settings=document.getElementById('settings-panel');
       if(settings?.classList.contains('open')) return;
       const mm=document.getElementById('main-menu');
@@ -67,25 +73,20 @@
   document.getElementById('btn-loadsave') && (document.getElementById('btn-loadsave').onclick=()=>{ if(typeof promptLoadUI==='function') promptLoadUI(); });
   document.getElementById('btn-sample') && (document.getElementById('btn-sample').onclick=()=>loadSampleFort());
   document.getElementById('btn-load') && (document.getElementById('btn-load').onclick=async()=>{
-    if(window.netrunAPI && window.netrunAPI.openJsonFile){
-      try{
-        const res=await window.netrunAPI.openJsonFile();
-        if(res&&res.data) loadFort(res.data);
-      }catch(e){ log('Load failed: '+e.message,'bad'); }
-    } else {
-      const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
-      inp.onchange=async()=>{
-        try{ loadFort(JSON.parse(await inp.files[0].text())); }
-        catch(e){ log('Bad JSON: '+e.message,'bad'); }
-      };
-      inp.click();
-    }
+    // Prefer the renderer File API. It works both in a fresh Electron binary and
+    // in renderer-only patch deployments where main/preload may be older.
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+    inp.onchange=async()=>{ await importFortFile(inp.files && inp.files[0]); };
+    inp.click();
   });
 
   document.getElementById('btn-netmap') && (document.getElementById('btn-netmap').onclick=openNetMap);
+  document.getElementById('btn-forts') && (document.getElementById('btn-forts').onclick=()=>openFortLibrary());
+  document.getElementById('fort-library-close') && (document.getElementById('fort-library-close').onclick=closeFortLibrary);
   document.getElementById('netmap-close') && (document.getElementById('netmap-close').onclick=closeNetMap);
   document.getElementById('m-ldl') && (document.getElementById('m-ldl').onclick=doLdlLink);
-  document.getElementById('m-run') && (document.getElementById('m-run').onclick=runSelectedProgram);
+  document.getElementById('m-run') && (document.getElementById('m-run').onclick=()=>runSelectedProgram());
+  document.getElementById('target-cancel') && (document.getElementById('target-cancel').onclick=()=>cancelProgramTarget());
   document.getElementById('m-copy') && (document.getElementById('m-copy').onclick=doCopy);
   document.getElementById('m-read') && (document.getElementById('m-read').onclick=doRead);
   document.getElementById('m-erase') && (document.getElementById('m-erase').onclick=doErase);
@@ -279,7 +280,7 @@
     const titleEl = document.querySelector('header .title');
     if(titleEl) titleEl.textContent = 'NETRUN TERMINAL // ISO ' + verLabel;
     log('Netrun Terminal ISO ' + verLabel + ' online.', 'ok');
-    log('CP2020 RAW: 5 spaces + 1 Menu action per net-turn.', 'info');
+    log('CP2020 NET TURN: 5 spaces + DECK CPU actions per net-turn.', 'info');
     log('Modules: data · core · fort · combat · demons · saves · netmap · ui · scene', 'sys');
     log('F3 debug · seed=' + S.seed, 'sys');
     // Paint any status already set by main's quiet check

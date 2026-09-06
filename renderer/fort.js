@@ -1,66 +1,132 @@
 /* fort.js — fort validation, grid, spawn, load */
+function fortPayload(raw){
+  // Accept direct Cybersmily DF Designer exports and common wrapper objects.
+  // Some tools export {datafort:{...}} / {fort:{...}} instead of the fort at root.
+  if(typeof raw==='string'){
+    let text=raw.replace(/^\uFEFF/, '').trim();
+    raw=JSON.parse(text);
+  }
+  if(Array.isArray(raw)){
+    if(raw.length!==1) throw new Error('Fort JSON must contain one fortress object.');
+    raw=raw[0];
+  }
+  if(!raw || typeof raw!=='object' || Array.isArray(raw)) throw new Error('Fort JSON root is not an object.');
+  const wrappers=['datafort','dataFort','data_fort','fortress','fort','data'];
+  let cur=raw;
+  for(let i=0;i<3;i++){
+    if(cur.rows!=null || cur.columns!=null || cur.datawallNodes || cur.codegates || cur.defenses) break;
+    const key=wrappers.find(k=>cur[k] && typeof cur[k]==='object' && !Array.isArray(cur[k]));
+    if(!key) break;
+    cur=cur[key];
+  }
+  // Cybersmily's Datafort Designer exports this canonical shape.  A few
+  // older/local forks use singular aliases; convert them here so the gameplay
+  // layer never has to know which designer revision produced the JSON.
+  if(cur.datawallNodes==null && Array.isArray(cur.datawalls)) cur.datawallNodes=cur.datawalls;
+  if(cur.datawallNodes==null && Array.isArray(cur.walls)) cur.datawallNodes=cur.walls;
+  if(cur.codegates==null && Array.isArray(cur.gates)) cur.codegates=cur.gates;
+  if(cur.defenses==null && Array.isArray(cur.ice)) cur.defenses=cur.ice;
+  if(cur.cpuNodes==null && Array.isArray(cur.cpu_nodes)) cur.cpuNodes=cur.cpu_nodes;
+  if(cur.muNodes==null && Array.isArray(cur.mu_nodes)) cur.muNodes=cur.mu_nodes;
+  return cur;
+}
+function coordOf(value){
+  if(Array.isArray(value) && value.length>=2) return {x:Number(value[0]),y:Number(value[1])};
+  if(value && typeof value==='object'){
+    const c=value.coord && typeof value.coord==='object' ? value.coord : value;
+    if(c.x!=null && c.y!=null) return {x:Number(c.x),y:Number(c.y)};
+  }
+  return null;
+}
+function normalizeNode(value){
+  const c=coordOf(value);
+  return c && Number.isFinite(c.x) && Number.isFinite(c.y) ? c : null;
+}
 function validateFort(raw){
   const errs=[];
+  try{ raw=fortPayload(raw); }catch(e){ return [e.message]; }
   if(!raw || typeof raw!=='object') return ['Not a JSON object'];
   if(raw.rows!=null && (Number(raw.rows)<3||Number(raw.rows)>40)) errs.push('rows out of range (3–40)');
   if(raw.columns!=null && (Number(raw.columns)<3||Number(raw.columns)>40)) errs.push('columns out of range (3–40)');
   for(const key of ['datawallNodes','codegates','cpuNodes','muNodes','remotes','defenses']){
     if(raw[key]!=null && !Array.isArray(raw[key])) errs.push(key+' must be an array');
   }
-  // coordinate sanity
   const R=Number(raw.rows)||12, C=Number(raw.columns)||14;
   const checkCoord=(c,label)=>{
-    if(!c) return;
-    const x=c.x!=null?c.x:c.coord&&c.coord.x;
-    const y=c.y!=null?c.y:c.coord&&c.coord.y;
-    if(x==null||y==null) return;
-    if(x<0||y<0||x>=C||y>=R) errs.push(`${label} coord (${x},${y}) outside ${C}×${R}`);
+    const q=coordOf(c);
+    if(!q) return;
+    if(q.x<0||q.y<0||q.x>=C||q.y>=R) errs.push(`${label} coord (${q.x},${q.y}) outside ${C}×${R}`);
   };
   (raw.datawallNodes||[]).forEach((n,i)=>checkCoord(n,'datawall#'+i));
-  (raw.defenses||[]).forEach((d,i)=>checkCoord(d.coord||d,'ICE#'+i));
-  (raw.codegates||[]).forEach((g,i)=>checkCoord(g.coord||g,'gate#'+i));
+  (raw.cpuNodes||[]).forEach((n,i)=>checkCoord(n,'cpu#'+i));
+  (raw.muNodes||[]).forEach((n,i)=>checkCoord(n,'mu#'+i));
+  (raw.remotes||[]).forEach((n,i)=>checkCoord(n,'remote#'+i));
+  (raw.defenses||[]).forEach((d,i)=>checkCoord(d,'ICE#'+i));
+  (raw.codegates||[]).forEach((g,i)=>checkCoord(g,'gate#'+i));
   return errs;
 }
 function normalizeFort(raw){
-  const defenses = (Array.isArray(raw.defenses)?raw.defenses:[]).map(d=>{
-    const p = d.program || {};
-    const name = d.name || p.name || 'ICE';
-    const str = Number(p.strength||p.str||p._str||d.str)||4;
-    const options = p.options || d.options || [];
+  raw=fortPayload(raw);
+  const mapNodes=(arr)=>Array.isArray(arr)?arr.map(normalizeNode).filter(Boolean):[];
+  const defenses=(Array.isArray(raw.defenses)?raw.defenses:[]).map((d,idx)=>{
+    d=d&&typeof d==='object'?d:{};
+    const p=d.program&&typeof d.program==='object'?d.program:{};
+    const name=String(d.name||p.name||'ICE');
+    const str=Number(p.strength??p.str??p._str??d.str??4)||4;
+    const options=Array.isArray(p.options)?p.options:(Array.isArray(d.options)?d.options:[]);
+    const coord=normalizeNode(d) || {x:0,y:0};
+    const cls=(p.class&&typeof p.class==='object') ? (p.class.name||'') : (p.class||p.cls||'');
     return {
+      ...d,
       name,
-      coord: d.coord || {x:d.x,y:d.y},
-      program: {
-        name: p.name || name,
-        strength: str,
+      coord,
+      program:{
+        ...p,
+        name:String(p.name||name),
+        strength:str,
         str,
-        mu: Number(p.bookMu||p.mu)||0,
-        description: p.description || '',
+        mu:Number(p.bookMu??p.mu??0)||0,
+        description:p.description||'',
         options,
-        class: (p.class && p.class.name) || p.cls || '',
+        class:cls,
       }
     };
   });
-  // files from mu array if files empty (DF designer)
-  let files = Array.isArray(raw.files)?raw.files:[];
+  let files=Array.isArray(raw.files)?raw.files.map((f,i)=>({
+    ...((f&&typeof f==='object')?f:{}),
+    key:String(f?.key||f?.name||`File ${i+1}`),
+    value:Number(f?.value??f?.mu??1)||1
+  })):[];
   if(!files.length && Array.isArray(raw.mu)){
-    files = raw.mu.map(m=>({key:m.key||m.name||'File', value:Number(m.value||m.mu)||1}));
+    files=raw.mu.map((m,i)=>({
+      ...((m&&typeof m==='object')?m:{}),
+      key:String(m?.key||m?.name||`File ${i+1}`),
+      value:Number(m?.value??m?.mu??1)||1
+    }));
   }
+  const rows=Number(raw.rows??raw.height??12)||12;
+  const columns=Number(raw.columns??raw.width??14)||14;
   return {
-    name:raw.name||'Unknown Fortress',
-    rows:Number(raw.rows)||12, columns:Number(raw.columns)||14,
+    ...raw,
+    name:String(raw.name||'Unknown Fortress'),
+    notes:raw.notes||'', cost:Number(raw.cost)||0, additionalCosts:Number(raw.additionalCosts)||0,
+    rows, columns,
     cpu:Number(raw.cpu)||1, int:Number(raw.int)||5,
-    ai: raw.ai || null,
+    ai:raw.ai||null,
     datawallStr:Number(raw.datawallStr)||3,
-    datawallNodes:Array.isArray(raw.datawallNodes)?raw.datawallNodes:[],
-    codegates:Array.isArray(raw.codegates)?raw.codegates:[],
-    cpuNodes:Array.isArray(raw.cpuNodes)?raw.cpuNodes:[],
-    muNodes:Array.isArray(raw.muNodes)?raw.muNodes:[],
-    remotes:Array.isArray(raw.remotes)?raw.remotes:[],
+    datawallNodes:mapNodes(raw.datawallNodes),
+    codegates:Array.isArray(raw.codegates)?raw.codegates.map(g=>({...g,coord:normalizeNode(g)||{x:0,y:0}})):[],
+    cpuNodes:mapNodes(raw.cpuNodes),
+    muNodes:mapNodes(raw.muNodes),
+    remotes:Array.isArray(raw.remotes)?raw.remotes.map(r=>({...r,coord:normalizeNode(r)||{x:0,y:0}})):[],
     defenses,
     files,
+    skills:Array.isArray(raw.skills)?raw.skills:[],
+    muAvailable:Number(raw.muAvailable)||0,
+    muUsed:Number(raw.muUsed)||0,
   };
 }
+
 function buildGrid(){
   const fort=S.fort; const g=[];
   for(let y=0;y<fort.rows;y++){
@@ -192,7 +258,8 @@ function tickBuffs(){
   updateRunnerBars();
 }
 function startTurn(){
-  S.turn++; S.moveLeft=5; S.actionLeft=1; S.netMoveLeft=5;
+  S.turn++; S.moveLeft=5; S.actionMax=(typeof actionCapacity==='function'?actionCapacity():1); S.actionLeft=S.actionMax; S.netMoveLeft=5; S.programTarget=null;
+  if(S.scene&&typeof S.scene.drawProgramTarget==='function') S.scene.drawProgramTarget();
   tickBuffs();
   // CP2020: one Stun recovery attempt per turn while out
   if(S.stunned && !S.flatlined && typeof tryStunRecovery==='function'){
@@ -228,7 +295,7 @@ function startTurn(){
   }
 }
 function updateHUD(){
-  let act=S.actionLeft?'ACTION ready':'ACTION spent';
+  let act=`ACTION ${S.actionLeft}/${S.actionMax||1}`;
   if(S.flatlined) act='FLATLINED';
   else if(S.stunned) act='STUNNED';
   const hud=document.getElementById('hud-top');
@@ -243,7 +310,7 @@ function updateHUD(){
   }
   document.getElementById('st-turn').textContent=S.turn||'—';
   document.getElementById('st-move').textContent=S.moveLeft;
-  document.getElementById('st-act').textContent=S.actionLeft;
+  document.getElementById('st-act').textContent=`${S.actionLeft}/${S.actionMax||1}`;
   const al=document.getElementById('st-alarm');
   if(al){
     al.textContent=S.alarm;
@@ -264,9 +331,9 @@ function updateHUD(){
 function spendAction(){
   if(S.flatlined){log('FLATLINED — no actions.','bad');return false}
   if(S.stunned){log('Stunned — no Menu action.','bad');return false}
-  if(S.actionLeft<=0){log('No Menu action left this turn.','bad');return false}
+  if(S.actionLeft<=0){log('No Menu actions left this turn.','bad');return false}
   if(S.wounds>=17||nr().int<=0){log('You are incapacitated.','bad');return false}
-  S.actionLeft=0; updateHUD(); return true;
+  S.actionLeft=Math.max(0,S.actionLeft-1); updateHUD(); return true;
 }
 
 function loadSampleFort(){
@@ -287,36 +354,145 @@ function loadSampleFort(){
   return !!S.fort;
 }
 
-function loadFort(raw){
-  const errs=validateFort(raw);
-  if(errs.length){
-    log('Fort JSON warnings: '+errs.join('; '),'bad');
-    // still try to load — soft validation
-  }
-  S.wallStr={}; S.openGates.clear(); S.deadIce.clear(); S.iceStr={};
-  S.alarm=0; S.wounds=0; S.intDmg=0; S.loot=[];
-  S.buffs={shield:0,invis:0,stealth:0,armor:0,worm:null};
-  S.stunned=false; S.stabilized=false; S.flatlined=false; S._flatlineShown=false; S.activeDemons=[]; S.demonPlan=null; S.pseudoMem=S.pseudoMem||{}; S.selfModMem=S.selfModMem||{}; S.explored=new Set();
-  if(typeof lotfReset==='function') lotfReset();
-  S.jackLocked=0; S.combatActive=false; S.mapRot=0;
-  S.fort=normalizeFort(raw);
-  for(const n of S.fort.datawallNodes) S.wallStr[key(n.x,n.y)]=S.fort.datawallStr;
-  for(const d of S.fort.defenses){
-    const c=d.coord||d; const p=d.program||{};
-    S.iceStr[key(c.x,c.y)]=Number(p.strength||p.str)||4;
-  }
-  buildGrid(); S.runner=findSpawn(); S.turn=0;
-  if(typeof revealAround==='function') revealAround(S.runner.x,S.runner.y);
-  updateRunnerBars(); startTurn();
-  if(S.fort && S.fort.ai && typeof aiMsg==='function'){
-    aiMsg('AI', (S.fort.ai.personality)||'Resident process watching.');
-  }
-  log('Loaded: '+S.fort.name,'ok');
-  log(`Datawall STR ${S.fort.datawallStr} · ${S.fort.codegates.length} gates · ${S.fort.defenses.length} ICE`,'info');
-  if(S.scene) S.scene.rebuildMap();
-  updateHUD();
+function fortRuntimeSnapshot(){
+  return {
+    fort:S.fort, grid:S.grid, runner:S.runner && {...S.runner}, turn:S.turn,
+    moveLeft:S.moveLeft, actionLeft:S.actionLeft, actionMax:S.actionMax, netMoveLeft:S.netMoveLeft, programTarget:S.programTarget, 
+    wallStr:{...(S.wallStr||{})}, openGates:new Set(S.openGates||[]),
+    deadIce:new Set(S.deadIce||[]), iceStr:{...(S.iceStr||{})}, alarm:S.alarm,
+    wounds:S.wounds, intDmg:S.intDmg, loot:Array.isArray(S.loot)?S.loot.slice():[],
+    buffs:JSON.parse(JSON.stringify(S.buffs||{})), stunned:S.stunned,
+    stabilized:S.stabilized, flatlined:S.flatlined, _flatlineShown:S._flatlineShown,
+    activeDemons:Array.isArray(S.activeDemons)?S.activeDemons.slice():[],
+    demonPlan:S.demonPlan, pseudoMem:{...(S.pseudoMem||{})}, selfModMem:{...(S.selfModMem||{})},
+    explored:new Set(S.explored||[]), jackLocked:S.jackLocked, combatActive:S.combatActive,
+    mapRot:S.mapRot
+  };
+}
+function restoreFortRuntime(s){
+  if(!s) return;
+  Object.assign(S,s);
 }
 
+function parseFortFileText(text){
+  if(typeof text!=='string') throw new Error('The selected file is not text.');
+  const clean=text.replace(/^\uFEFF/, '').trim();
+  if(!clean) throw new Error('The selected JSON file is empty.');
+  try{return JSON.parse(clean);}catch(e){
+    const pos=Number.isInteger(e?.message?.match(/position (\d+)/i)?.[1]) ? Number(e.message.match(/position (\d+)/i)[1]) : null;
+    throw new Error(pos!=null ? `Invalid JSON near character ${pos}.` : `Invalid JSON: ${e.message}`);
+  }
+}
+
+async function readFortFile(file){
+  if(!file) throw new Error('No fortress file selected.');
+  if(typeof file.text==='function') return parseFortFileText(await file.text());
+  return await new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onerror=()=>reject(new Error('Could not read the fortress file.'));
+    r.onload=()=>{try{resolve(parseFortFileText(String(r.result||'')))}catch(e){reject(e)}};
+    r.readAsText(file,'utf-8');
+  });
+}
+
+async function importFortFile(file){
+  try{
+    const raw=await readFortFile(file);
+    let normalized;
+    try{
+      const payload=fortPayload(raw);
+      const errs=validateFort(payload);
+      if(errs.length) log('Fort JSON warnings: '+errs.join('; '),'bad');
+      normalized=normalizeFort(payload);
+      if(normalized.rows<3||normalized.columns<3||normalized.rows>40||normalized.columns>40){
+        throw new Error(`Unsupported fortress size: ${normalized.columns}×${normalized.rows}.`);
+      }
+    }catch(e){ throw new Error('Fortress validation failed: '+e.message); }
+    if(typeof openFortPlacementDialog!=='function') throw new Error('DataFort placement interface is not initialized.');
+    openFortPlacementDialog(normalized);
+    return true;
+  }catch(e){
+    console.error('DataFort import failed',e);
+    log('DATAFORT IMPORT FAILED: '+e.message,'bad');
+    return false;
+  }
+}
+
+function enterStoredFort(id){
+  const rec=window.FortLibrary?.get(id);
+  if(!rec){ log('DataFort entry not found.','bad'); return false; }
+  if(typeof loadFort!=='function') return false;
+  const ok=loadFort(cloneFortObject(rec.fort));
+  if(!ok) return false;
+  S._activeFortId=rec.id;
+  S._activeFortCityId=rec.cityId;
+  S._activeFortCell={x:rec.x,y:rec.y};
+  closeCityGrid?.();
+  closeNetMap?.();
+  const city=window.FortLibrary.cityName(rec.cityId);
+  log(`Entered ${rec.fort.name} · ${city} grid (${rec.x},${rec.y}).`,'ok');
+  return true;
+}
+function cloneFortObject(v){ return JSON.parse(JSON.stringify(v)); }
+window.enterStoredFort=enterStoredFort;
+
+function loadFort(raw){
+  let normalized;
+  try{
+    const payload=fortPayload(raw);
+    const errs=validateFort(payload);
+    if(errs.length){
+      // Coordinate warnings are useful, but are not fatal for designer files.
+      log('Fort JSON warnings: '+errs.join('; '),'bad');
+    }
+    normalized=normalizeFort(payload);
+    if(!normalized.rows || !normalized.columns) throw new Error('Fortress dimensions are missing.');
+    if(normalized.rows<3 || normalized.columns<3 || normalized.rows>40 || normalized.columns>40){
+      throw new Error(`Unsupported fortress size: ${normalized.columns}×${normalized.rows}.`);
+    }
+  }catch(e){
+    log('Fort load failed: '+e.message,'bad');
+    return false;
+  }
+
+  const previous=fortRuntimeSnapshot();
+  try{
+    // Defensive initialization makes external imports independent of whatever
+    // state the player was in before pressing LOAD.
+    if(!(S.openGates instanceof Set)) S.openGates=new Set();
+    if(!(S.deadIce instanceof Set)) S.deadIce=new Set();
+    S.wallStr={}; S.openGates.clear(); S.deadIce.clear(); S.iceStr={};
+    S.alarm=0; S.wounds=0; S.intDmg=0; S.loot=[];
+    S.buffs={shield:0,invis:0,stealth:0,armor:0,worm:null};
+    S.stunned=false; S.stabilized=false; S.flatlined=false; S._flatlineShown=false;
+    S.activeDemons=[]; S.demonPlan=null; S.pseudoMem={}; S.selfModMem={}; S.explored=new Set();
+    if(typeof lotfReset==='function') lotfReset();
+    S.jackLocked=0; S.combatActive=false; S.mapRot=0;
+    S.fort=normalized;
+    for(const n of S.fort.datawallNodes) S.wallStr[key(n.x,n.y)]=S.fort.datawallStr;
+    for(const d of S.fort.defenses){
+      const c=d.coord; const p=d.program||{};
+      S.iceStr[key(c.x,c.y)]=Number(p.strength||p.str)||4;
+    }
+    buildGrid();
+    S.runner=findSpawn();
+    S.turn=0;
+    if(typeof revealAround==='function') revealAround(S.runner.x,S.runner.y);
+    updateRunnerBars();
+    startTurn();
+    if(S.fort.ai && typeof aiMsg==='function') aiMsg('AI',S.fort.ai.personality||'Resident process watching.');
+    log('Loaded: '+S.fort.name,'ok');
+    log(`Datawall STR ${S.fort.datawallStr} · ${S.fort.codegates.length} gates · ${S.fort.defenses.length} ICE`,'info');
+    if(S.scene) S.scene.rebuildMap();
+    updateHUD();
+    return true;
+  }catch(e){
+    console.error('loadFort runtime error',e);
+    restoreFortRuntime(previous);
+    log('Fort load failed during initialization: '+e.message,'bad');
+    return false;
+  }
+}
 
 window.validateFort = validateFort; window.normalizeFort = normalizeFort;
 window.buildGrid = buildGrid; window.findSpawn = findSpawn;
@@ -325,6 +501,9 @@ window.tickBuffs = tickBuffs; window.startTurn = startTurn;
 window.updateHUD = updateHUD; window.spendAction = spendAction;
 window.loadFort = loadFort;
 window.loadSampleFort = loadSampleFort;
+window.importFortFile = importFortFile;
+window.enterStoredFort = enterStoredFort;
+window.readFortFile = readFortFile;
 window.revealAround=revealAround;
 window.isOpaqueTile=isOpaqueTile;
 window.isExplored=isExplored;

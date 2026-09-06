@@ -517,20 +517,38 @@ window.drawDossierPhoto=drawDossierPhoto;
 window.setupDossierPhotoUpload=setupDossierPhotoUpload;
 window.syncDossierHandle=syncDossierHandle;
 
-/* ========== City Grid view ========== */
+/* ========== City Grid + DataFort placement ========== */
+function cityGridFortList(ldlId){
+  return window.FortLibrary ? window.FortLibrary.listCity(ldlId) : [];
+}
+function cityGridGeometry(g){
+  const wrap=document.getElementById('citygrid-canvas-wrap');
+  const rw=wrap?.clientWidth||600, rh=wrap?.clientHeight||400;
+  const pad=24, cols=g.cols||12, rows=g.rows||10;
+  return {rw,rh,pad,cols,rows,cellW:(rw-pad*2)/cols,cellH:(rh-pad*2)/rows};
+}
 function openCityGrid(ldlId){
   const g = (window.CITY_GRIDS||{})[ldlId];
   const ov=document.getElementById('citygrid-overlay');
   if(!ov){ log('No city-grid UI.','bad'); return; }
-  if(!g){
-    log('No detailed city grid for this LDL yet — regional Net only.','sys');
-    return;
-  }
+  if(!g){ log('No city grid registered for this LDL.','bad'); return; }
   document.getElementById('citygrid-title').textContent=g.name.toUpperCase();
   document.getElementById('citygrid-note').textContent=g.note||'';
+  renderCityGridSide(ldlId,g);
+  ov.classList.add('open');
+  drawCityGrid(g,ldlId);
+  bindCityGridHits(g,ldlId);
+  S._cityGridId=ldlId;
+}
+function closeCityGrid(){
+  const ov=document.getElementById('citygrid-overlay');
+  if(ov) ov.classList.remove('open');
+}
+function renderCityGridSide(ldlId,g){
   const list=document.getElementById('citygrid-list');
-  list.innerHTML='';
-  g.nodes.forEach(n=>{
+  if(!list) return;
+  list.innerHTML='<h4 style="color:var(--c);margin:0 0 6px">GRID NODES</h4>';
+  (g.nodes||[]).forEach(n=>{
     const d=document.createElement('div');
     d.style.cssText='padding:4px 0;border-bottom:1px solid #1a2a20;cursor:pointer';
     d.innerHTML='<b style="color:var(--g)">'+n.label+'</b><div style="color:var(--m)">'+n.t+' · ('+n.x+','+n.y+')'+(n.action?' · <span style="color:var(--c)">INTERACT</span>':'')+'</div>';
@@ -539,69 +557,171 @@ function openCityGrid(ldlId){
     d.onclick=()=>cityGridNodeClick(n,g);
     list.appendChild(d);
   });
-  ov.classList.add('open');
-  drawCityGrid(g);
-  bindCityGridHits(g);
-  S._cityGridId=ldlId;
+  const forts=cityGridFortList(ldlId);
+  const h=document.createElement('h4'); h.style.cssText='color:var(--a);margin:12px 0 5px'; h.textContent='DATAFORTS ('+forts.length+')'; list.appendChild(h);
+  if(!forts.length){
+    const e=document.createElement('div'); e.style.cssText='color:var(--m);font-size:10px;padding:4px 0'; e.textContent='No imported DataForts. Empty grid.'; list.appendChild(e);
+  } else forts.forEach(rec=>{
+    const d=document.createElement('div');
+    d.className='city-fort-entry';
+    d.style.cssText='padding:6px;border:1px solid #183323;margin-bottom:4px;cursor:pointer;background:#050c08';
+    d.innerHTML='<b style="color:var(--a)">'+escapeHtml(rec.fort.name)+'</b><div style="color:var(--m);font-size:9px">CELL ('+rec.x+','+rec.y+') · '+rec.fort.columns+'×'+rec.fort.rows+' · '+rec.fort.defenses.length+' ICE</div><div style="display:flex;gap:4px;margin-top:4px"><button class="amber cgf-enter">ENTER</button><button class="cyan cgf-move">MOVE</button></div>';
+    d.onclick=e=>{ if(e.target.tagName==='BUTTON') return; window.enterStoredFort?.(rec.id); };
+    d.querySelector('.cgf-enter').onclick=e=>{e.stopPropagation(); window.enterStoredFort?.(rec.id);};
+    d.querySelector('.cgf-move').onclick=e=>{e.stopPropagation(); openFortMoveDialog(rec.id);};
+    d.onmouseenter=()=>d.style.borderColor='var(--a)';
+    d.onmouseleave=()=>d.style.borderColor='#183323';
+    list.appendChild(d);
+  });
 }
-function closeCityGrid(){
-  const ov=document.getElementById('citygrid-overlay');
-  if(ov) ov.classList.remove('open');
-}
-function drawCityGrid(g){
+function escapeHtml(v){ return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+function drawCityGrid(g,ldlId){
   const cv=document.getElementById('citygrid-canvas');
   const wrap=document.getElementById('citygrid-canvas-wrap');
   if(!cv||!wrap) return;
   const dpr=window.devicePixelRatio||1;
-  const rw=wrap.clientWidth||600, rh=wrap.clientHeight||400;
+  const {rw,rh,pad,cols,rows,cellW,cellH}=cityGridGeometry(g);
   cv.width=Math.floor(rw*dpr); cv.height=Math.floor(rh*dpr);
   cv.style.width=rw+'px'; cv.style.height=rh+'px';
-  const ctx=cv.getContext('2d');
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.fillStyle='#020806'; ctx.fillRect(0,0,rw,rh);
-  const pad=24;
-  const cols=g.cols||10, rows=g.rows||8;
-  const cellW=(rw-pad*2)/cols, cellH=(rh-pad*2)/rows;
-  // grid
-  ctx.strokeStyle='rgba(80,120,90,0.25)';
-  ctx.lineWidth=1;
-  for(let x=0;x<=cols;x++){
-    ctx.beginPath(); ctx.moveTo(pad+x*cellW, pad); ctx.lineTo(pad+x*cellW, pad+rows*cellH); ctx.stroke();
-  }
-  for(let y=0;y<=rows;y++){
-    ctx.beginPath(); ctx.moveTo(pad, pad+y*cellH); ctx.lineTo(pad+cols*cellW, pad+y*cellH); ctx.stroke();
+  // Every cell is a real local-grid location. Imported forts occupy one cell.
+  for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
+    const px=pad+x*cellW, py=pad+y*cellH;
+    ctx.fillStyle=(x+y)%2?'rgba(20,35,25,.28)':'rgba(10,24,16,.18)';
+    ctx.fillRect(px,py,cellW,cellH);
+    ctx.strokeStyle='rgba(80,120,90,0.25)'; ctx.lineWidth=1; ctx.strokeRect(px,py,cellW,cellH);
+    ctx.fillStyle='rgba(100,140,110,.35)'; ctx.font='8px Courier New'; ctx.fillText(x+','+y,px+3,py+10);
   }
   const colors={ldl:'#33ccff',corp:'#ffaa33',gov:'#ff3355',pub:'#33ff66',bank:'#c0a0ff',media:'#ff66aa',port:'#33ffcc'};
-  g.nodes.forEach(n=>{
+  (g.nodes||[]).forEach(n=>{
     const cx=pad+(n.x+0.5)*cellW, cy=pad+(n.y+0.5)*cellH;
     const col=colors[n.t]||'#88aa88';
-    ctx.fillStyle=col+'33';
-    ctx.beginPath(); ctx.arc(cx,cy,Math.min(cellW,cellH)*0.35,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle=col; ctx.lineWidth=2;
-    ctx.strokeRect(cx-6, cy-6, 12, 12);
-    ctx.fillStyle=col;
-    ctx.font='10px Courier New';
-    ctx.textAlign='center';
-    ctx.fillText(n.label, cx, cy+Math.min(cellH,18)+4);
+    ctx.fillStyle=col+'33'; ctx.beginPath(); ctx.arc(cx,cy,Math.min(cellW,cellH)*.3,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.strokeRect(cx-6,cy-6,12,12);
+    ctx.fillStyle=col; ctx.font='10px Courier New'; ctx.textAlign='center'; ctx.fillText(n.label,cx,cy+Math.min(cellH,18)+4);
   });
-  ctx.textAlign='left';
-  ctx.fillStyle='rgba(120,160,120,0.7)';
-  ctx.font='11px Courier New';
-  ctx.fillText(g.region+' · CITY GRID · CP2020', pad, rh-8);
+  const forts=cityGridFortList(ldlId);
+  forts.forEach(rec=>{
+    const cx=pad+(rec.x+0.5)*cellW, cy=pad+(rec.y+0.5)*cellH;
+    const w=Math.min(cellW*.68,72), h=Math.min(cellH*.52,42);
+    ctx.fillStyle='rgba(255,170,51,.16)'; ctx.fillRect(cx-w/2,cy-h/2,w,h);
+    ctx.strokeStyle='#ffaa33'; ctx.lineWidth=2; ctx.strokeRect(cx-w/2,cy-h/2,w,h);
+    ctx.fillStyle='#ffaa33'; ctx.font='bold 9px Courier New'; ctx.textAlign='center';
+    ctx.fillText('DATAFORT',cx,cy-2);
+    ctx.font='8px Courier New'; ctx.fillText(String(rec.fort.name).slice(0,12),cx,cy+9);
+  });
+  ctx.textAlign='left'; ctx.fillStyle='rgba(120,160,120,0.7)'; ctx.font='11px Courier New';
+  ctx.fillText(g.region+' · CITY GRID · '+cols+'×'+rows,pad,rh-8);
+}
+function cityGridNodeClick(n,g){
+  if(n.action==='hkpa'){
+    openExternalTerminal('terminals/HKPA_Terminal.html','Hongkong Port Terminal // PA Net'); return;
+  }
+  log((n.label||'?')+' · '+n.t+' — no interactive payload.','sys');
+}
+function bindCityGridHits(g,ldlId){
+  const cv=document.getElementById('citygrid-canvas');
+  if(!cv) return;
+  cv.style.cursor='pointer';
+  cv.onclick=function(ev){
+    const rect=cv.getBoundingClientRect();
+    const geom=cityGridGeometry(g);
+    const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    const gx=Math.floor((mx-geom.pad)/geom.cellW), gy=Math.floor((my-geom.pad)/geom.cellH);
+    if(gx<0||gy<0||gx>=geom.cols||gy>=geom.rows) return;
+    const fort=window.FortLibrary?.at(ldlId,gx,gy);
+    if(fort){ window.enterStoredFort?.(fort.id); return; }
+    const node=(g.nodes||[]).find(n=>n.x===gx&&n.y===gy);
+    if(node){ cityGridNodeClick(node,g); return; }
+    log(`City grid cell (${gx},${gy}) is empty.`,'sys');
+  };
 }
 window.openCityGrid=openCityGrid;
 window.closeCityGrid=closeCityGrid;
 window.drawCityGrid=drawCityGrid;
+window.cityGridNodeClick=cityGridNodeClick;
+window.bindCityGridHits=bindCityGridHits;
 
-
-function cityGridNodeClick(n, g){
-  if(n.action==='hkpa'){
-    openExternalTerminal('terminals/HKPA_Terminal.html', 'Hongkong Port Terminal // PA Net');
-    return;
+/* ========== DataFort placement dialog ========== */
+function openFortPlacementDialog(fort, moveId){
+  let ov=document.getElementById('fort-placement-overlay');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='fort-placement-overlay';
+    ov.innerHTML=`<div id="fort-placement-box">
+      <div class="fp-head"><b>INSTALL DATAFORT</b><button id="fp-close" class="red">CANCEL</button></div>
+      <div id="fp-summary"></div>
+      <label>CITY / LDL <select id="fp-city"></select></label>
+      <div class="fp-grid-label">SELECT GRID CELL</div>
+      <div id="fp-grid"></div>
+      <div id="fp-selected" class="fp-selected">Select a free cell.</div>
+      <div class="fp-actions"><button id="fp-install" class="cyan" disabled>INSTALL DATAFORT</button></div>
+    </div>`;
+    document.body.appendChild(ov);
+    document.getElementById('fp-close').onclick=()=>ov.remove();
   }
-  log((n.label||'?')+' · '+n.t+' — no interactive payload.','sys');
+  ov.__fort=fort; ov.__moveId=moveId||null;
+  const citySel=ov.querySelector('#fp-city');
+  citySel.innerHTML=(window.LDL_DB||[]).map(l=>`<option value="${escapeHtml(l.id)}">${escapeHtml(l.city)} · ${escapeHtml(l.region)}</option>`).join('');
+  citySel.value=S.netLoc && (window.CITY_GRIDS||{})[S.netLoc] ? S.netLoc : (window.LDL_DB?.[0]?.id||'');
+  ov.querySelector('#fp-summary').innerHTML=`<b>${escapeHtml(fort.name)}</b><div>${fort.columns}×${fort.rows} · ${fort.datawallNodes.length} DATAWALL · ${fort.codegates.length} GATE · ${fort.defenses.length} ICE</div>`;
+  const state={cityId:citySel.value,x:null,y:null}; ov.__placement=state;
+  function redraw(){ state.cityId=citySel.value; state.x=null; state.y=null; renderPlacementGrid(ov, state); }
+  citySel.onchange=redraw;
+  renderPlacementGrid(ov,state);
+  const actionBtn=ov.querySelector('#fp-install');
+  actionBtn.textContent=moveId?'MOVE DATAFORT':'INSTALL DATAFORT';
+  actionBtn.onclick=()=>{
+    if(state.x==null||state.y==null) return;
+    try{
+      if(moveId){
+        const rec=window.FortLibrary.move(moveId,state.cityId,state.x,state.y);
+        ov.remove();
+        log(`Moved ${fort.name} to ${window.FortLibrary.cityName(state.cityId)} city grid at (${state.x},${state.y}).`,'ok');
+        if(typeof openCityGrid==='function') openCityGrid(state.cityId);
+        if(typeof drawWorldNetMap==='function') drawWorldNetMap();
+        if(typeof renderFortLibrary==='function') renderFortLibrary();
+      }else{
+        const rec=window.FortLibrary.add(fort,state.cityId,state.x,state.y);
+        ov.remove();
+        log(`Installed ${fort.name} in ${window.FortLibrary.cityName(state.cityId)} city grid at (${state.x},${state.y}).`,'ok');
+        if(typeof openCityGrid==='function') openCityGrid(state.cityId);
+        if(typeof drawWorldNetMap==='function') drawWorldNetMap();
+      }
+    }catch(e){ log((moveId?'DATAFORT MOVE FAILED: ':'DATAFORT INSTALL FAILED: ')+e.message,'bad'); }
+  };
+  ov.style.display='flex';
 }
-
+function openFortMoveDialog(id){
+  const rec=window.FortLibrary?.get(id);
+  if(!rec){ log('DataFort entry not found.','bad'); return false; }
+  openFortPlacementDialog(cloneFortObject(rec.fort), id);
+  return true;
+}
+window.openFortMoveDialog=openFortMoveDialog;
+function renderPlacementGrid(ov,state){
+  const g=(window.CITY_GRIDS||{})[state.cityId]; const box=ov.querySelector('#fp-grid');
+  if(!g||!box) return;
+  const forts=cityGridFortList(state.cityId);
+  const occupied=new Set(forts.filter(r=>r.id!==ov.__moveId).map(r=>r.x+','+r.y));
+  box.style.gridTemplateColumns=`repeat(${g.cols},1fr)`; box.innerHTML='';
+  for(let y=0;y<g.rows;y++) for(let x=0;x<g.cols;x++){
+    const b=document.createElement('button'); b.type='button'; b.className='fp-cell'; b.textContent=x+','+y;
+    const node=(g.nodes||[]).find(n=>n.x===x&&n.y===y);
+    const key=x+','+y;
+    if(occupied.has(key)){ b.classList.add('occupied'); b.title='Occupied by an existing DataFort'; b.disabled=true; }
+    else if(node){ b.classList.add('node'); b.title=node.label; }
+    b.onclick=()=>{
+      state.x=x; state.y=y;
+      box.querySelectorAll('.fp-cell.selected').forEach(el=>el.classList.remove('selected'));
+      b.classList.add('selected');
+      ov.querySelector('#fp-selected').textContent=`Selected ${window.FortLibrary.cityName(state.cityId)} · cell (${x},${y})`;
+      ov.querySelector('#fp-install').disabled=false;
+    };
+    box.appendChild(b);
+  }
+}
+window.openFortPlacementDialog=openFortPlacementDialog;
 function openExternalTerminal(relPath, title){
   let ov=document.getElementById('ext-term-overlay');
   if(!ov){
@@ -628,39 +748,36 @@ function openExternalTerminal(relPath, title){
   log('Accessing '+title+'…','ok');
 }
 
-// canvas click hit-test for city grid nodes
-(function bindCityGridCanvas(){
-  const cv=document.getElementById('citygrid-canvas');
-  if(!cv || cv.__cityBound) return;
-  // bind later when open
-})();
-
-function bindCityGridHits(g){
-  const cv=document.getElementById('citygrid-canvas');
-  const wrap=document.getElementById('citygrid-canvas-wrap');
-  if(!cv||!wrap) return;
-  cv.style.cursor='crosshair';
-  cv.onclick=function(ev){
-    const rect=cv.getBoundingClientRect();
-    const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
-    const rw=wrap.clientWidth||600, rh=wrap.clientHeight||400;
-    const pad=24;
-    const cols=g.cols||10, rows=g.rows||8;
-    const cellW=(rw-pad*2)/cols, cellH=(rh-pad*2)/rows;
-    let best=null, bestD=1e9;
-    g.nodes.forEach(n=>{
-      const cx=pad+(n.x+0.5)*cellW, cy=pad+(n.y+0.5)*cellH;
-      const d=(cx-mx)*(cx-mx)+(cy-my)*(cy-my);
-      const hitR=Math.min(cellW,cellH)*0.55;
-      if(d<hitR*hitR && d<bestD){ bestD=d; best=n; }
-    });
-    if(best) cityGridNodeClick(best, g);
-  };
-}
-window.cityGridNodeClick=cityGridNodeClick;
 window.openExternalTerminal=openExternalTerminal;
-window.bindCityGridHits=bindCityGridHits;
 
+/* ========== Installed DataFort library ========== */
+function openFortLibrary(){
+  const ov=document.getElementById('fort-library-overlay'); if(!ov) return;
+  const box=document.getElementById('fort-library-list');
+  const items=window.FortLibrary?.list()||[];
+  box.innerHTML='';
+  if(!items.length){
+    box.innerHTML='<div style="color:var(--m);padding:20px;text-align:center">No imported DataForts yet.<br>Use LOAD and choose a city-grid cell.</div>';
+  } else items.forEach(rec=>{
+    const row=document.createElement('div'); row.className='fl-entry';
+    const city=window.FortLibrary.cityName(rec.cityId);
+    row.innerHTML='<div class="fl-main"><div class="fl-name">'+escapeHtml(rec.fort.name)+'</div><div class="fl-meta">'+escapeHtml(city)+' · CELL ('+rec.x+','+rec.y+') · '+rec.fort.columns+'×'+rec.fort.rows+' · '+rec.fort.datawallNodes.length+' walls · '+rec.fort.codegates.length+' gates · '+rec.fort.defenses.length+' ICE</div></div><div class="fl-actions"><button class="cyan fl-view">GRID</button><button class="cyan fl-move">MOVE</button><button class="amber fl-enter">ENTER</button><button class="red fl-delete">DEL</button></div>';
+    row.querySelector('.fl-view').onclick=()=>{ closeFortLibrary(); openCityGrid(rec.cityId); };
+    row.querySelector('.fl-move').onclick=()=>{ closeFortLibrary(); openFortMoveDialog(rec.id); };
+    row.querySelector('.fl-enter').onclick=()=>{ closeFortLibrary(); window.enterStoredFort?.(rec.id); };
+    row.querySelector('.fl-delete').onclick=()=>{
+      if(confirm('Delete installed DataFort "'+rec.fort.name+'"?')){ window.FortLibrary.remove(rec.id); renderFortLibrary(); if(S._cityGridId) openCityGrid(S._cityGridId); }
+    };
+    row.querySelector('.fl-main').onclick=()=>{ closeFortLibrary(); openCityGrid(rec.cityId); };
+    box.appendChild(row);
+  });
+  ov.style.display='flex';
+}
+function renderFortLibrary(){
+  const ov=document.getElementById('fort-library-overlay'); if(ov?.style.display==='flex') openFortLibrary();
+}
+function closeFortLibrary(){ const ov=document.getElementById('fort-library-overlay'); if(ov) ov.style.display='none'; }
+window.openFortLibrary=openFortLibrary; window.closeFortLibrary=closeFortLibrary; window.renderFortLibrary=renderFortLibrary;
 
 /* ========== Idle NET screensaver (30s) ========== */
 let _idleTimer=null, _idleOn=false;

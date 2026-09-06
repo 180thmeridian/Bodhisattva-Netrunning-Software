@@ -1,7 +1,8 @@
 /* core.js — global state, seeded RNG, logging, runner/deck helpers */
 const S = {
   fort:null, grid:null, runner:{x:0,y:0},
-  turn:0, moveLeft:5, actionLeft:1,
+  turn:0, moveLeft:5, actionLeft:1, actionMax:1,
+  programTarget:null,
   programs:[], selectedProg:0,
   wallStr:{}, openGates:new Set(), deadIce:new Set(), iceStr:{},
   alarm:0, wounds:0, intDmg:0,
@@ -116,6 +117,10 @@ function deck(){return{
   dw:+document.getElementById('deck-dw').value||2,
   mu:+document.getElementById('deck-mu').value||10,
 }}
+function actionCapacity(){
+  const cpu=Number(S.profile?.deck?.cpu);
+  return Math.max(1, Math.min(8, Number.isFinite(cpu)?Math.floor(cpu):1));
+}
 function muUsed(){return S.programs.reduce((s,p)=>s+(+p.mu||0),0)}
 function updateMu(){
   if(typeof updateDeckSpeedPenalty==='function') updateDeckSpeedPenalty();
@@ -304,7 +309,7 @@ window.S = S;
 window.setSeed = setSeed; window.rng = rng; window.d10 = d10; window.d6 = d6;
 window.netAttackRoll = netAttackRoll; window.netDefendRoll = netDefendRoll;
 window.key = key; window.log = log; window.clearNetLog = clearNetLog; window.copyNetLog = copyNetLog; window.nr = nr; window.deck = deck;
-window.muUsed = muUsed; window.updateMu = updateMu; window.updateRunnerBars = updateRunnerBars;
+window.actionCapacity=actionCapacity; window.muUsed = muUsed; window.updateMu = updateMu; window.updateRunnerBars = updateRunnerBars;
 window.updateNeuralMap = updateNeuralMap;
 window.progClassMeta = progClassMeta;
 window.renderPrograms = renderPrograms;

@@ -37,7 +37,7 @@
   "tag.switch": "SWITCH",
   "tag.patch": "PATCH",
   "tag.exit": "EXIT",
-  "menu.foot": "v1.6.51 · WASD move · R run · T end turn · C camera lock",
+  "menu.foot": "v1.6.52 · WASD move · R run · T end turn · C camera lock",
   "header.netmap": "NETMAP",
   "header.save": "SAVE",
   "header.load": "LOAD",

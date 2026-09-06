@@ -209,6 +209,13 @@
       ctx.fillStyle='rgba(200,220,200,0.85)';
       ctx.textAlign='center';
       ctx.fillText(l.city, s.sx, s.sy+sz+11);
+      // Installed DataForts are anchored to this city's local grid.
+      const fortCount = window.FortLibrary ? window.FortLibrary.listCity(l.id).length : 0;
+      if(fortCount){
+        ctx.fillStyle='#ffaa33';
+        ctx.font='bold 8px Courier New';
+        ctx.fillText('DF×'+fortCount, s.sx, s.sy-sz-5);
+      }
       ctx.textAlign='left';
     });
   }

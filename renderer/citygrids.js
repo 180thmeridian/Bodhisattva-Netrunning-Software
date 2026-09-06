@@ -170,3 +170,17 @@ const CITY_GRIDS = {
   },
 };
 window.CITY_GRIDS = CITY_GRIDS;
+
+/* Ensure every World NET LDL has a local, interactive city grid. */
+(function ensureAllCityGrids(){
+  (window.LDL_DB||[]).forEach(l=>{
+    if(CITY_GRIDS[l.id]) return;
+    CITY_GRIDS[l.id]={
+      name:l.city+' City Grid',
+      region:l.region||'NET',
+      cols:12, rows:10,
+      note:'Local city grid · empty until DataForts are installed.',
+      nodes:[{x:1,y:1,t:'ldl',label:'LDL Uplink'}]
+    };
+  });
+})();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>CP2020 NETRUN // ISO 1.6.51</title>
+<title>CP2020 NETRUN // ISO 1.6.56</title>
 <script src="phaser.min.js"></script>
 <style>
 :root {
@@ -29,6 +29,8 @@ button:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
 button.amber{color:var(--a);border-color:#4a3010}
 button.cyan{color:var(--c);border-color:#104050}
 button.red{color:var(--r);border-color:#401018}
+button.targeting{color:var(--a);border-color:#6a4310;box-shadow:0 0 10px rgba(255,170,51,.28);animation:targetPulse 1s ease-in-out infinite}
+@keyframes targetPulse{0%,100%{opacity:1}50%{opacity:.65}}
 .panel{background:var(--panel);border-right:1px solid var(--border);overflow:auto;padding:10px 12px;z-index:2}
 .panel.right{border-right:none;border-left:1px solid var(--border)}
 .panel h3{color:var(--c);font-size:11px;letter-spacing:1px;border-bottom:1px solid var(--border);
@@ -71,6 +73,24 @@ button.red{color:var(--r);border-color:#401018}
   0%,100%{ opacity:1; filter:brightness(1); }
   50%{ opacity:0.55; filter:brightness(1.3); }
 }
+
+/* Full-screen target selection HUD. Map remains clickable beneath it. */
+#target-mode{display:none;position:absolute;inset:0;z-index:18;pointer-events:none}
+#target-mode.on{display:block}
+#target-mode .target-banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);min-width:360px;max-width:70%;
+  padding:9px 16px;background:rgba(3,10,6,.92);border:1px solid #6a4310;box-shadow:0 0 18px rgba(255,170,51,.18);text-align:center}
+#target-mode .target-title{color:var(--a);font-size:13px;letter-spacing:2px;font-weight:bold}
+#target-mode .target-sub{color:var(--w);font-size:11px;margin-top:4px}
+#target-mode .target-help{color:var(--m);font-size:10px;margin-top:5px}
+#target-mode .target-card{position:absolute;right:14px;top:72px;width:250px;padding:10px;background:rgba(3,10,6,.94);border:1px solid var(--border);box-shadow:0 0 14px rgba(0,0,0,.45)}
+#target-mode .target-card h4{color:var(--c);font-size:10px;letter-spacing:1px;margin-bottom:7px}
+#target-mode .target-row{display:flex;justify-content:space-between;gap:12px;color:var(--m);margin:4px 0}
+#target-mode .target-row b{color:var(--g);font-weight:normal;text-align:right}
+#target-mode .target-status{margin-top:8px;padding-top:7px;border-top:1px solid var(--border);color:var(--a);line-height:1.45}
+#target-mode .target-cancel{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);pointer-events:auto;min-width:180px}
+#target-mode .target-count{position:absolute;left:14px;top:72px;padding:7px 10px;background:rgba(3,10,6,.9);border:1px solid var(--border);color:var(--c);font-size:10px}
+#target-mode .target-dim{position:absolute;inset:0;background:rgba(0,0,0,.12);pointer-events:none}
+
 /* Left deck panel: programs consume all vertical space left after the dossier. */
 #left{display:flex;flex-direction:column;min-height:0;overflow:hidden}
 #left #prog-list{flex:1 1 auto;min-height:80px;max-height:none;overflow-y:auto;overflow-x:hidden}
@@ -404,6 +424,21 @@ button{ text-shadow: 0 0 6px rgba(51,255,102,.2); }
 #dossier-meta .handle{color:var(--g);font-weight:bold;font-size:13px;letter-spacing:1px}
 #dossier-meta .idline{color:var(--c);font-size:10px;margin-top:4px}
 #citygrid-overlay{position:absolute;inset:0;z-index:16;display:none;flex-direction:column;background:rgba(1,4,3,.97);padding:10px}
+#citygrid-overlay.open{display:flex}
+#fort-placement-overlay{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,5,3,.88);padding:18px}
+#fort-placement-box{width:min(760px,92vw);max-height:92vh;overflow:auto;border:1px solid var(--c);background:#030907;box-shadow:0 0 24px rgba(51,204,255,.12);padding:12px}
+.fp-head{display:flex;align-items:center;gap:10px;color:var(--c);font-size:13px;letter-spacing:1px;margin-bottom:10px}.fp-head b{flex:1}
+#fort-placement-box label{display:grid;grid-template-columns:130px 1fr;gap:8px;align-items:center;color:var(--m);font-size:10px;margin:8px 0}
+#fp-city{background:#050c08;color:var(--g);border:1px solid var(--border);padding:6px;font-family:inherit}
+#fp-summary{border:1px solid var(--border);padding:8px;color:var(--m);font-size:10px;margin-bottom:10px}.fp-grid-label{color:var(--a);font-size:10px;margin:10px 0 5px}
+#fp-grid{display:grid;gap:2px;border:1px solid var(--border);padding:5px;background:#020604}
+.fp-cell{min-width:0;height:34px;padding:0;border:1px solid #173022;background:#07100b;color:#5b8065;font:8px 'Courier New';cursor:pointer}
+.fp-cell:hover{border-color:var(--g);color:var(--g);background:#0a1a10}.fp-cell.node{border-color:#285d43}.fp-cell.occupied{border-color:#442c14;color:#76552a;cursor:not-allowed;background:#0d0b07}.fp-cell.selected{border-color:var(--c);background:rgba(51,204,255,.14);color:var(--c);box-shadow:inset 0 0 8px rgba(51,204,255,.12)}
+.fp-selected{margin-top:8px;color:var(--c);font-size:10px;min-height:15px}.fp-actions{text-align:right;margin-top:10px}
+#fort-library-overlay{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;background:rgba(0,5,3,.88);padding:18px}
+#fort-library-box{width:min(760px,92vw);max-height:88vh;overflow:auto;border:1px solid var(--a);background:#030907;padding:12px}
+.fl-head{display:flex;align-items:center;gap:10px;color:var(--a);margin-bottom:10px}.fl-head b{flex:1}.fl-entry{display:grid;grid-template-columns:1fr auto;gap:8px;border:1px solid #183323;padding:8px;margin-bottom:5px;background:#050c08}.fl-main{cursor:pointer}.fl-name{color:var(--a);font-weight:bold}.fl-meta{color:var(--m);font-size:9px;margin-top:3px}.fl-actions{display:flex;gap:4px;align-items:center}
+
 #citygrid-overlay.open{display:flex}
 #citygrid-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 #citygrid-top h2{color:var(--c);font-size:14px;letter-spacing:1px}
@@ -1145,7 +1180,7 @@ body[data-window-mode="fullscreen"] #shell{border:none}
     </div>
     <div id="boot-create" class="hidden boot-form">
       <h2 data-i18n="profile.registerTitle">REGISTER NETRUNNER</h2>
-      <p class="hint">Stats feed Interface combat. Body Type sets BTM — subtracted from each wound hit (min 1). Cyberdeck CPU cores affect multitasking flavour only. Export the profile JSON to share with another player.</p>
+      <p class="hint">Stats feed Interface combat. Body Type sets BTM — subtracted from each wound hit (min 1). Cyberdeck CPU cores determine Menu actions available each net-turn. Export the profile JSON to share with another player.</p>
       <label>HANDLE <input id="pf-handle" value="Ghost" maxlength="24" /></label>
       <label>REAL NAME <input id="pf-real" value="Orest Rozalski" maxlength="40" /></label>
       <label class="step-label">INT
@@ -1248,7 +1283,7 @@ body[data-window-mode="fullscreen"] #shell{border:none}
     <button type="button" class="mm-btn" id="mm-update"><span data-i18n="menu.update">UPDATE</span> <span class="tag" data-i18n="tag.patch">PATCH</span></button>
     <button type="button" class="mm-btn red" id="mm-quit"><span data-i18n="menu.quit">QUIT</span> <span class="tag" data-i18n="tag.exit">EXIT</span></button>
   </div>
-  <div class="mm-foot" data-i18n="menu.foot">v1.6.51 · WASD move · R run · T end turn · C camera lock</div>
+  <div class="mm-foot" data-i18n="menu.foot">v1.6.56 · WASD move · R run · T end turn · C camera lock</div>
 </div>
 
 
@@ -1306,7 +1341,7 @@ body[data-window-mode="fullscreen"] #shell{border:none}
 </div>
 <div id="shell">
 <header>
-  <div class="title">NETRUN TERMINAL // ISO 1.6.51</div>
+  <div class="title">NETRUN TERMINAL // ISO 1.6.56</div>
   <div class="ver">CP2020 · 5 move + 1 action</div>
   <div id="hdr-loc" title="LDL location">—</div>
   <div id="net-clock" title="Net-time · +1s per completed turn">2032-08-01 · 00:00:00</div>
@@ -1315,7 +1350,8 @@ body[data-window-mode="fullscreen"] #shell{border:none}
       <span class="grp-label">Fort</span>
       <button id="btn-load" data-i18n="header.load" class="cyan" title="Load Cybersmily / fort JSON">LOAD</button>
       <button id="btn-sample" data-i18n="header.sample" class="amber" title="Sample datafort">SAMPLE</button>
-      <button id="btn-netmap" data-i18n="header.netmap" class="cyan" title="World netmap" data-i18n="header.netmap">NETMAP</button>
+      <button id="btn-netmap" data-i18n="header.netmap" class="cyan" title="World netmap">NETMAP</button>
+      <button id="btn-forts" class="amber" title="Installed DataForts">FORTS</button>
     </div>
     <div class="btn-group" title="Session">
       <span class="grp-label" data-i18n="ui.session">Session</span>
@@ -1395,7 +1431,25 @@ body[data-window-mode="fullscreen"] #shell{border:none}
   </div>
 </aside>
 <div id="game-wrap">
-  <div id="hud-top">LOAD A DATAFORT TO BEGIN</div>
+  <div id="target-mode" aria-live="polite">
+  <div class="target-dim"></div>
+  <div class="target-banner">
+    <div class="target-title" id="target-title">TARGET MODE</div>
+    <div class="target-sub" id="target-sub">Select a highlighted cell.</div>
+    <div class="target-help">LMB SELECT · ESC CANCEL · RMB CAMERA</div>
+  </div>
+  <div class="target-count" id="target-count">0 VALID TARGETS</div>
+  <div class="target-card">
+    <h4>◆ TARGET DATA</h4>
+    <div class="target-row"><span>PROGRAM</span><b id="target-program">—</b></div>
+    <div class="target-row"><span>TYPE</span><b id="target-type">—</b></div>
+    <div class="target-row"><span>COORD</span><b id="target-coord">—</b></div>
+    <div class="target-row"><span>STR</span><b id="target-str">—</b></div>
+    <div class="target-status" id="target-status">Move the pointer over a highlighted cell.</div>
+  </div>
+  <button id="target-cancel" class="amber target-cancel">CANCEL TARGETING</button>
+</div>
+<div id="hud-top">LOAD A DATAFORT TO BEGIN</div>
   <div id="neural-map">
     <h4>NEURAL <span class="nm-status" id="nm-status">NOMINAL</span></h4>
     <div class="nm-brain">
@@ -1424,12 +1478,18 @@ body[data-window-mode="fullscreen"] #shell{border:none}
     <div id="citygrid-top">
       <h2 id="citygrid-title">CITY GRID</h2>
       <div class="hint" id="citygrid-note" style="color:var(--m);font-size:11px;flex:1"></div>
-      <button class="cyan" id="citygrid-enter" title="Load SAMPLE fort in this city">ENTER FORT</button>
+      <button class="cyan" id="citygrid-enter" title="Load the built-in SAMPLE fort in this city">ENTER SAMPLE</button>
       <button class="red" id="citygrid-close">CLOSE</button>
     </div>
     <div style="display:flex;flex:1;min-height:0;gap:8px">
       <div id="citygrid-canvas-wrap"><canvas id="citygrid-canvas"></canvas></div>
       <div id="citygrid-side"><h4 style="color:var(--c)">NODES</h4><div id="citygrid-list"></div></div>
+    </div>
+  </div>
+  <div id="fort-library-overlay">
+    <div id="fort-library-box">
+      <div class="fl-head"><b>INSTALLED DATAFORTS</b><button id="fort-library-close" class="red">CLOSE</button></div>
+      <div id="fort-library-list"></div>
     </div>
   </div>
   <div id="netmap-overlay">
@@ -1475,7 +1535,7 @@ body[data-window-mode="fullscreen"] #shell{border:none}
   <h3 data-i18n="ui.netStatus">NET STATUS</h3>
   <div class="stat-row st-turn-row" style="display:none"><span>TURN</span><b id="st-turn">—</b></div>
   <div class="stat-row"><span>MOVE</span><b id="st-move">5</b></div>
-  <div class="stat-row"><span>ACTION</span><b id="st-act">1</b></div>
+  <div class="stat-row"><span>ACTION / CPU</span><b id="st-act">1/1</b></div>
   <div class="stat-row" id="row-alarm"><span>ALARM</span><b id="st-alarm">0</b></div>
   <div class="stat-row" id="row-trace" style="display:none"><span>TRACE Σ</span><b id="st-trace">0</b></div>
   <!-- hidden anchors kept for JS -->
@@ -1517,7 +1577,7 @@ body[data-window-mode="fullscreen"] #shell{border:none}
   <span><kbd>R</kbd> run</span>
   <span><kbd>T</kbd> end</span>
   <span><kbd>L</kbd> load</span>
-  <span style="margin-left:auto;color:var(--gd)">v1.6.51</span>
+  <span style="margin-left:auto;color:var(--gd)">v1.6.56</span>
 </footer>
 </div>
 <div id="hud-flash" aria-hidden="true"></div>
@@ -1534,6 +1594,7 @@ body[data-window-mode="fullscreen"] #shell{border:none}
 <script src="profile.js"></script>
 <script src="data.js"></script>
 <script src="citygrids.js"></script>
+<script src="fort-library.js"></script>
 <script src="core.js"></script>
 <script src="saves.js"></script>
 <script src="demons.js"></script>
